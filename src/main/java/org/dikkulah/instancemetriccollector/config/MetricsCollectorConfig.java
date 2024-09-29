@@ -2,9 +2,7 @@ package org.dikkulah.instancemetriccollector.config;
 
 
 import com.sun.management.OperatingSystemMXBean;
-import org.dikkulah.instancemetriccollector.service.collector.LinuxMetricsCollector;
 import org.dikkulah.instancemetriccollector.service.collector.MetricsCollector;
-import org.dikkulah.instancemetriccollector.service.collector.WindowsMetricsCollector;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,7 +26,6 @@ public class MetricsCollectorConfig {
     public MetricsCollector metricsCollector() {
         OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
         String osName = osBean.getName().toLowerCase();
-        System.out.println(osName);
 
         return collectorMap.entrySet().stream()
                 .filter(entry -> osName.contains(entry.getKey()))

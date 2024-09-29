@@ -3,7 +3,6 @@ package org.dikkulah.instancemetriccollector.service;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dikkulah.instancemetriccollector.dto.MetricsPayload;
-import org.dikkulah.instancemetriccollector.service.collector.InstanceMetricsCollector;
 import org.dikkulah.instancemetriccollector.service.collector.MetricsCollector;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
