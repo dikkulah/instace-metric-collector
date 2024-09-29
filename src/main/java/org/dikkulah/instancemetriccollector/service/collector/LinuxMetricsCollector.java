@@ -1,5 +1,8 @@
 package org.dikkulah.instancemetriccollector.service.collector;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class LinuxMetricsCollector extends InstanceMetricsCollector {
     @Override
     public String getNetworkUsage() {
@@ -10,4 +13,11 @@ public class LinuxMetricsCollector extends InstanceMetricsCollector {
     public String getDiskUsage() {
         return "";
     }
+
+    @Override
+    public String getCollectorName() {
+        return "linux";
+    }
+
+
 }

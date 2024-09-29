@@ -2,6 +2,10 @@ package org.dikkulah.instancemetriccollector.service.collector;
 
 public interface MetricsCollector {
 
+    String getOSName();
+
+    String getOSVersion();
+
     double getCpuLoad();
 
     long getTotalMemorySize();
@@ -25,4 +29,7 @@ public interface MetricsCollector {
     String getNetworkUsage();
 
     String getDiskUsage();
+
+    String getCollectorName();
+
 }

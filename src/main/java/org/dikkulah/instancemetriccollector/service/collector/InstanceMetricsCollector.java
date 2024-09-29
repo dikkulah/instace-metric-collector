@@ -1,11 +1,9 @@
 package org.dikkulah.instancemetriccollector.service.collector;
 
 import com.sun.management.OperatingSystemMXBean;
-import org.springframework.stereotype.Service;
 
 import java.lang.management.ManagementFactory;
 
-@Service
 public abstract class InstanceMetricsCollector implements MetricsCollector {
 
     private final OperatingSystemMXBean osBean;
@@ -62,6 +60,16 @@ public abstract class InstanceMetricsCollector implements MetricsCollector {
     @Override
     public long getFreeSwapSpaceSize() {
         return osBean.getFreeSwapSpaceSize();
+    }
+
+    @Override
+    public String getOSName() {
+        return osBean.getName();
+    }
+
+    @Override
+    public String getOSVersion() {
+        return osBean.getVersion();
     }
 
     public abstract String getNetworkUsage();
