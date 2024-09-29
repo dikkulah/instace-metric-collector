@@ -1,5 +1,6 @@
 version: "1.0"
+linter: jetbrains/qodana-jvm:2024.1
 profile:
-  name: qodana.starter
+  name: qodana.recommended
 include:
-  - name: LombokSetterMayBeUsed
+  - name: CheckDependencyLicenses
