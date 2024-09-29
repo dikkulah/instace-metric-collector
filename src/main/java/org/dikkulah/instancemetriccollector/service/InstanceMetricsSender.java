@@ -1,5 +1,7 @@
 package org.dikkulah.instancemetriccollector.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dikkulah.instancemetriccollector.dto.MetricsPayload;
@@ -21,11 +23,16 @@ public class InstanceMetricsSender {
     }
 
     @Scheduled(fixedRate = 6000)
-    public void sendMetrics() {
+    public void sendMetrics() throws JsonProcessingException {
         double cpuLoad = metricsCollector.getCpuLoad();
         long totalMemory = metricsCollector.getTotalMemorySize();
 
-        MetricsPayload payload = new MetricsPayload(cpuLoad, 1, totalMemory);
-        log.info(payload);
+        MetricsPayload payload = new MetricsPayload(
+                cpuLoad,
+                1,
+                totalMemory,
+                metricsCollector.getRunningProcesses(),
+                metricsCollector.getRunningServices());
+        log.info(new ObjectMapper().writeValueAsString(payload));
     }
 }

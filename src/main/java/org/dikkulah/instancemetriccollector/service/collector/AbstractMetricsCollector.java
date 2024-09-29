@@ -4,11 +4,11 @@ import com.sun.management.OperatingSystemMXBean;
 
 import java.lang.management.ManagementFactory;
 
-public abstract class InstanceMetricsCollector implements MetricsCollector {
+public abstract class AbstractMetricsCollector implements MetricsCollector {
 
     private final OperatingSystemMXBean osBean;
 
-    protected InstanceMetricsCollector() {
+    protected AbstractMetricsCollector() {
         this.osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     }
 
@@ -71,4 +71,5 @@ public abstract class InstanceMetricsCollector implements MetricsCollector {
     public String getOSVersion() {
         return osBean.getVersion();
     }
+
 }

@@ -1,6 +1,6 @@
 package org.dikkulah.instancemetriccollector.service.collector;
 
-public interface MetricsCollector {
+public interface MetricsCollector extends ProcessCollector, ServiceCollector {
 
     String getOSName();
 
@@ -26,10 +26,9 @@ public interface MetricsCollector {
 
     long getFreeSwapSpaceSize();
 
+    String getCollectorName();
+
     String getNetworkUsage();
 
     String getDiskUsage();
-
-    String getCollectorName();
-
 }
