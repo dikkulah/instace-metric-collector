@@ -1,7 +1,7 @@
 package org.dikkulah.instancemetriccollector.service.collector.linux;
 
 import org.dikkulah.instancemetriccollector.config.OperatingSystemCondition;
-import org.dikkulah.instancemetriccollector.dto.ServiceInfo;
+import org.dikkulah.instancemetriccollector.model.ServiceInfo;
 import org.dikkulah.instancemetriccollector.service.collector.ServiceCollector;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;

@@ -1,7 +1,7 @@
 package org.dikkulah.instancemetriccollector.service.collector.windows;
 
 import org.dikkulah.instancemetriccollector.config.OperatingSystemCondition;
-import org.dikkulah.instancemetriccollector.dto.ProcessInfo;
+import org.dikkulah.instancemetriccollector.model.ProcessInfo;
 import org.dikkulah.instancemetriccollector.service.collector.ProcessCollector;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;

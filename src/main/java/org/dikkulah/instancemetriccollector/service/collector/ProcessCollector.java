@@ -1,6 +1,6 @@
 package org.dikkulah.instancemetriccollector.service.collector;
 
-import org.dikkulah.instancemetriccollector.dto.ProcessInfo;
+import org.dikkulah.instancemetriccollector.model.ProcessInfo;
 
 import java.util.List;
 

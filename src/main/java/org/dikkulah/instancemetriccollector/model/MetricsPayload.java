@@ -1,4 +1,4 @@
-package org.dikkulah.instancemetriccollector.dto;
+package org.dikkulah.instancemetriccollector.model;
 
 import java.util.List;
 
