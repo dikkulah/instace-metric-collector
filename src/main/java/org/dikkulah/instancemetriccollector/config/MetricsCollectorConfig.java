@@ -7,19 +7,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.lang.management.ManagementFactory;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @Configuration
 public class MetricsCollectorConfig {
-    private final Map<String, Supplier<MetricsCollector>> collectorMap = new HashMap<>(2);
+    private final Map<String, Supplier<MetricsCollector>> collectorMap;
 
     public MetricsCollectorConfig(List<MetricsCollector> collectors) {
-        for (MetricsCollector collector : collectors) {
-            collectorMap.put(collector.getCollectorName(), () -> collector);
-        }
+        collectorMap = collectors.stream()
+                .collect(Collectors.toMap(MetricsCollector::getCollectorName, collector -> () -> collector));
     }
 
     @Bean

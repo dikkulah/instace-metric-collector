@@ -8,7 +8,7 @@ public abstract class InstanceMetricsCollector implements MetricsCollector {
 
     private final OperatingSystemMXBean osBean;
 
-    public InstanceMetricsCollector() {
+    protected InstanceMetricsCollector() {
         this.osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     }
 
@@ -71,8 +71,4 @@ public abstract class InstanceMetricsCollector implements MetricsCollector {
     public String getOSVersion() {
         return osBean.getVersion();
     }
-
-    public abstract String getNetworkUsage();
-
-    public abstract String getDiskUsage();
 }
