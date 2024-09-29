@@ -14,6 +14,7 @@ import java.util.List;
 @Component
 @Conditional(OperatingSystemCondition.Windows.class)
 public class WindowsServiceCollector implements ServiceCollector {
+
     private final ProcessBuilder processBuilder = new ProcessBuilder("sc", "query", "type=", "service");
 
     public List<ServiceInfo> getRunningServices() {

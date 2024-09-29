@@ -66,12 +66,12 @@ public class WindowsProcessCollector implements ProcessCollector {
         return Double.parseDouble(memoryUsageStr);
     }
 
-    private static class WindowsCpuUsageCollector {
+    private class WindowsCpuUsageCollector {
+        private final ProcessBuilder processBuilder = new ProcessBuilder("wmic", "path", "Win32_PerfFormattedData_PerfProc_Process", "get", "IDProcess,PercentProcessorTime");
 
         public Map<Integer, Double> getCpuUsageForProcesses() {
             Map<Integer, Double> cpuUsageMap = new HashMap<>();
             try {
-                ProcessBuilder processBuilder = new ProcessBuilder("wmic", "path", "Win32_PerfFormattedData_PerfProc_Process", "get", "IDProcess,PercentProcessorTime");
                 Process process = processBuilder.start();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 

@@ -14,11 +14,11 @@ import java.util.List;
 @Component
 @Conditional(OperatingSystemCondition.Linux.class)
 public class LinuxProcessCollector implements ProcessCollector {
+    private final ProcessBuilder processBuilder = new ProcessBuilder("ps", "-aux");
 
     public List<ProcessInfo> getRunningProcesses() {
         List<ProcessInfo> processList = new ArrayList<>();
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder("ps", "-aux");
             Process process = processBuilder.start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
