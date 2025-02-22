@@ -34,7 +34,7 @@ public class WindowsServiceCollector implements ServiceCollector {
                     String[] stateInfo = line.trim().split(":");
                     status = stateInfo[1].trim().split(" ")[1];
                     if ("4".equals(status)) {
-                        services.add(new ServiceInfo(serviceName, "RUNNING", "No description available"));
+                        services.add(new ServiceInfo(serviceName, null, "No description available"));
                     }
                 }
             }

@@ -34,7 +34,7 @@ public class LinuxMetricsCollector extends AbstractMetricsCollector {
 
     @Override
     public String getCollectorName() {
-        return "linux";
+        return OperatingSystem.LINUX.getOsName();
     }
 
     @Override

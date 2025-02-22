@@ -1,4 +1,7 @@
 package org.dikkulah.instancemetriccollector.model;
 
-public record ServiceInfo(String serviceName, String status, String description) {
+public record ServiceInfo(
+        String serviceName,
+        ServiceStatus status,
+        String description) {
 }

@@ -1,7 +1,7 @@
 package org.dikkulah.instancemetriccollector.model;
 
 public enum OperatingSystem {
-    LINUX("linux"), WINDOWS("windows");
+    LINUX("linux"), WINDOWS("windows"), MAC("mac");
 
     private final String osName;
 

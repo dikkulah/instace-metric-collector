@@ -3,6 +3,7 @@ package org.dikkulah.instancemetriccollector.config;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
+import org.springframework.lang.NonNull;
 
 import java.lang.management.ManagementFactory;
 
@@ -16,7 +17,7 @@ public class OperatingSystemCondition implements Condition {
     }
 
     @Override
-    public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+    public boolean matches(@NonNull ConditionContext context, @NonNull AnnotatedTypeMetadata metadata) {
         String currentOsName = ManagementFactory.getOperatingSystemMXBean().getName().toLowerCase();
         return currentOsName.contains(osName);
     }
@@ -30,6 +31,12 @@ public class OperatingSystemCondition implements Condition {
     public static class Linux extends OperatingSystemCondition {
         public Linux() {
             super("linux");
+        }
+    }
+
+    public static class Mac extends OperatingSystemCondition {
+        public Mac() {
+            super("mac");
         }
     }
 }

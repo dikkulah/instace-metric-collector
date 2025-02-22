@@ -34,7 +34,7 @@ public class WindowsMetricsCollector extends AbstractMetricsCollector {
 
     @Override
     public String getCollectorName() {
-        return "windows";
+        return OperatingSystem.WINDOWS.getOsName();
     }
 
     @Override
