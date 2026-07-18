@@ -6,6 +6,7 @@ public record MetricsPayload(double cpuLoad,
                              long usedMemory,
                              long totalMemory,
                              List<ProcessInfo> processInfos,
-                             List<ServiceInfo> serviceInfos) {
+                             List<ServiceInfo> serviceInfos,
+                             List<ContainerInfo> containers) {
 
 }
