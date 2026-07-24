@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Services — Instance Metric Collector</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body class="services-page">
+  <header>
+    <div class="header-left">
+      <nav class="app-nav" aria-label="Main">
+        <a href="/" data-i18n="nav.dashboard">Dashboard</a>
+        <a href="/processes.html" data-i18n="nav.processes">Processes</a>
+        <a href="/services.html" class="active" data-i18n="nav.services">Services</a>
+      </nav>
+      <h1 data-i18n="services.pageTitle">Services</h1>
+    </div>
+    <div class="header-right">
+      <select id="lang-select" aria-label="Language">
+        <option value="en">English</option>
+        <option value="tr">Türkçe</option>
+      </select>
+      <div class="status-pill">
+        <span id="status-dot" class="status-dot offline"></span>
+        <span id="status-label" data-i18n-dynamic>Offline</span>
+      </div>
+      <div class="status-pill">
+        <span data-i18n="app.lastUpdate">Last update</span>:
+        <span id="last-update">—</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="waiting" data-i18n="app.waiting">Waiting for first metrics…</div>
+    <div id="services-dashboard" class="services-layout" hidden>
+      <section class="panel panel-services-main">
+        <div class="services-toolbar">
+          <input type="search" id="service-search" class="process-search"
+                 data-i18n-placeholder="services.search" placeholder="Search services…">
+          <span id="service-total" class="process-total"></span>
+          <label class="service-sort-label">
+            <span class="sr-only" data-i18n="services.sort.label">Sort</span>
+            <select id="service-sort" class="service-sort" aria-label="Sort services"></select>
+          </label>
+          <div class="view-toggle" role="group" aria-label="Service view">
+            <button type="button" id="service-view-tree" class="view-toggle-btn active" data-i18n="services.view.tree">Tree</button>
+            <button type="button" id="service-view-list" class="view-toggle-btn" data-i18n="services.view.list">List</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="service-list" class="service-list"></div>
+        </div>
+      </section>
+      <section class="panel panel-service-detail" id="service-detail-panel">
+        <div class="panel-header">
+          <h2 class="panel-title" data-i18n="services.detail.title">Service details</h2>
+        </div>
+        <div id="service-detail-empty" class="empty" data-i18n="services.detail.pick">Select a service to view details</div>
+        <div id="service-detail-content" hidden>
+          <div id="service-detail-full" class="service-detail-full"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/js/services.js?v=4"></script>
+</body>
+</html>
