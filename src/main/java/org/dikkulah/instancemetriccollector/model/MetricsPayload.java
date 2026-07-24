@@ -7,6 +7,10 @@ public record MetricsPayload(double cpuLoad,
                              long totalMemory,
                              List<ProcessInfo> processInfos,
                              List<ServiceInfo> serviceInfos,
-                             List<ContainerInfo> containers) {
+                             List<ContainerInfo> containers,
+                             List<DiskUsageInfo> diskUsage,
+                             List<NetworkUsageInfo> networkUsage,
+                             int availableProcessors,
+                             double systemLoadAverage) {
 
 }

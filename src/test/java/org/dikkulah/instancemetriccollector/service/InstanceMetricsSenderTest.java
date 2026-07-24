@@ -50,6 +50,10 @@ class InstanceMetricsSenderTest {
         when(metricsCollector.getCpuLoad()).thenReturn(0.25);
         when(metricsCollector.getTotalMemorySize()).thenReturn(1000L);
         when(metricsCollector.getFreeMemorySize()).thenReturn(400L);
+        when(metricsCollector.getAvailableProcessors()).thenReturn(10);
+        when(metricsCollector.getSystemLoadAverage()).thenReturn(2.5);
+        when(metricsCollector.getDiskUsage()).thenReturn(List.of());
+        when(metricsCollector.getNetworkUsage()).thenReturn(List.of());
         when(metricsCollector.getRunningProcesses()).thenReturn(List.of(
                 new ProcessInfo("user", 1, 1.0, 2.0, "java")
         ));
@@ -88,6 +92,10 @@ class InstanceMetricsSenderTest {
         when(metricsCollector.getCpuLoad()).thenReturn(0.1);
         when(metricsCollector.getTotalMemorySize()).thenReturn(2000L);
         when(metricsCollector.getFreeMemorySize()).thenReturn(500L);
+        when(metricsCollector.getAvailableProcessors()).thenReturn(4);
+        when(metricsCollector.getSystemLoadAverage()).thenReturn(1.0);
+        when(metricsCollector.getDiskUsage()).thenReturn(List.of());
+        when(metricsCollector.getNetworkUsage()).thenReturn(List.of());
         when(metricsCollector.getRunningProcesses()).thenReturn(List.of());
         when(metricsCollector.getRunningServices()).thenReturn(List.of());
 
