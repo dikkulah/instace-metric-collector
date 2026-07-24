@@ -1,0 +1,15 @@
+Design SCREEN: Processes page for "Instance Metric Collector".
+Desktop 1440px dark mode. 60/40 split layout.
+
+LEFT 60%: Search "Search processes…", dense sortable table:
+Columns: PID (mono right), User, CPU% (mono right), Mem% (mono right), Command (mono truncate).
+Selected row has blue left accent border.
+
+RIGHT 40%: Process details panel:
+- Title "Process details"
+- Definition grid: PID, User, CPU, Memory (dt muted body-sm, dd mono)
+- Command block (mono pre-wrap dark panel)
+- "Related services" section with heuristic match badges (~likely)
+
+Header: nav Processes ACTIVE, Live dot, EN|TR.
+Precision Ops Console design system.

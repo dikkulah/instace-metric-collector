@@ -58,7 +58,7 @@ interactive_menu() {
   echo ""
   echo "=== instance-metric-collector onboard ==="
   echo ""
-  if ask_yes_no "Pre-push hook kurulsun mu? (mvn test)"; then
+  if ask_yes_no "Pre-push hook kurulsun mu? (go test)"; then
     WANT_HOOKS=true
   else
     WANT_HOOKS=false
@@ -84,8 +84,8 @@ echo "==> Dev requirements"
 bash tool/ensure_dev_requirements.sh --check
 
 echo ""
-echo "==> Maven setup"
-./mvnw -B -q -DskipTests package
+echo "==> Build agent"
+make build
 
 if [[ "$WANT_HOOKS" == "true" ]]; then
   echo ""

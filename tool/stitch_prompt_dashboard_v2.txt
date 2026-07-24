@@ -1,0 +1,14 @@
+Design SCREEN: Host Dashboard Overview for "Instance Metric Collector" monitoring app.
+Desktop 1440px dark mode Precision Ops Console.
+
+GLOBAL SHELL: 240px sidebar (Dashboard ACTIVE, Processes, Services, Containers), top header with ⌘K search "Search instances...", EN|TR switcher, green pulsing Live dot + Last update.
+
+MAIN CONTENT:
+- Row of 4 summary cards with label-caps + large mono values + semantic progress bars:
+  CPU (42.3%), Memory (64.2% with used/total bytes), Containers (12, "8 healthy"), Load (2.14, "8 CPUs")
+- Two-column grid below:
+  LEFT: Disk panel — table rows with mount (mono), filesystem, use% (right-aligned mono), horizontal bar
+  RIGHT: Network panel — interface name, RX/TX bytes (right-aligned mono)
+- Bottom: Nested Docker containers mini-grid (name, status pill, Agent badge for metrics-collector containers)
+
+Style: Inter UI + JetBrains Mono data, background #031426, surface #0f2133, primary #adc6ff, success #4ae176. No purple gradients. 8px grid.

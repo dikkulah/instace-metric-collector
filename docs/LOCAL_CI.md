@@ -1,24 +1,24 @@
 # Local CI
 
-Hybrid policy: pre-push hook + GitHub Actions run unit tests; smoke stays local.
+Hybrid policy: pre-push hook + GitHub Actions run Go unit tests; smoke stays local.
 
 ## Quick commands
 
 | Command | What it runs | ~Time |
 |---------|--------------|-------|
-| `make ci-fast` | `./mvnw test` | ~1 min |
-| `make ci-smoke` | tests + package + short JAR run + log assertions | ~2 min |
+| `make ci-fast` | `go test ./...` | ~1 min |
+| `make ci-smoke` | tests + build + short agent run + API assertions | ~2 min |
 | `make check` | same as ci-fast | ~1 min |
 
 Script: `tool/ci_local.sh` (`--fast` for tests only).
 
 ## Pre-push hook
 
-Enabled via `make setup-hooks`. Runs `./mvnw -B -q test` before every `git push`.
+Enabled via `make setup-hooks`. Runs `make -C go test` before every `git push`.
 
 ## GitHub Actions
 
-- `ci.yml` — `./mvnw -B test` on push/PR to `main` and `development`
+- `ci.yml` — UI build + `go test ./...` on push/PR to `main`, `master`, and `development`
 
 Smoke is **not** run in CI (OS/Docker dependent).
 
@@ -26,8 +26,8 @@ Smoke is **not** run in CI (OS/Docker dependent).
 
 ```bash
 make ci-fast          # daily / development PRs
-make ci-smoke         # before merge to main
-git status            # no logs / target / secrets
+make ci-smoke         # before merge to main/master
+git status            # no logs / go/bin / node_modules
 ```
 
 ## Onboard profiles

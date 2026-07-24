@@ -37,7 +37,7 @@ PROFILE=full make onboard  # + smoke test
 - [ ] `make ci-smoke` geçti (main/milestone PR)
 - [ ] Council veto kontrolü yapıldı ([`docs/VETO_REGISTRY.md`](docs/VETO_REGISTRY.md))
 - [ ] Yeni collector mantığı için unit test eklendi (V14)
-- [ ] Log dosyası / `target/` commit edilmedi (V15)
+- [ ] Log dosyası / `go/bin/` commit edilmedi (V15)
 
 ## Council
 
