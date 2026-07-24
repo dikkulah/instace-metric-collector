@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Processes — Instance Metric Collector</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body class="processes-page">
+  <header>
+    <div class="header-left">
+      <nav class="app-nav" aria-label="Main">
+        <a href="/" data-i18n="nav.dashboard">Dashboard</a>
+        <a href="/processes.html" class="active" data-i18n="nav.processes">Processes</a>
+        <a href="/services.html" data-i18n="nav.services">Services</a>
+      </nav>
+      <h1 data-i18n="processes.pageTitle">All processes</h1>
+    </div>
+    <div class="header-right">
+      <select id="lang-select" aria-label="Language">
+        <option value="en">English</option>
+        <option value="tr">Türkçe</option>
+      </select>
+      <div class="status-pill">
+        <span id="status-dot" class="status-dot offline"></span>
+        <span id="status-label" data-i18n-dynamic>Offline</span>
+      </div>
+      <div class="status-pill">
+        <span data-i18n="app.lastUpdate">Last update</span>:
+        <span id="last-update">—</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="waiting" data-i18n="app.waiting">Waiting for first metrics…</div>
+    <div id="processes-dashboard" hidden>
+      <section class="panel processes-panel">
+        <div class="processes-toolbar">
+          <input type="search" id="process-search" class="process-search"
+                 data-i18n-placeholder="processes.search" placeholder="Search processes…">
+          <span id="process-total" class="process-total"></span>
+        </div>
+        <div class="processes-table-wrap">
+          <table class="processes-table" id="processes-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="rank">#</th>
+                <th class="sortable" data-sort="pid" data-i18n="table.pid">PID</th>
+                <th class="sortable" data-sort="user" data-i18n="table.user">User</th>
+                <th class="sortable" data-sort="name" data-i18n="table.name">Name</th>
+                <th class="sortable" data-sort="cpu" data-i18n="table.cpuSystem" data-i18n-title="cpu.hint.system">CPU % (system)</th>
+                <th class="sortable" data-sort="cpuCore" data-i18n="table.cpuCore" data-i18n-title="cpu.hint.core">CPU % (core)</th>
+                <th class="sortable" data-sort="memory" data-i18n="table.memory">Memory %</th>
+                <th data-i18n="processes.table.command">Command</th>
+              </tr>
+            </thead>
+            <tbody id="processes-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/js/processes.js?v=3"></script>
+</body>
+</html>
