@@ -1,0 +1,14 @@
+---
+description: LLM Council meta gate — veto rules and phase boundaries
+alwaysApply: true
+---
+
+# Council Gate
+
+Before implementing, check V1–V20 vetoes in AGENTS.md and docs/VETO_REGISTRY.md.
+
+Stop and ask the user if any veto would be violated.
+
+**Current phase:** 3 complete. **Phase 2** = HTTP push — pending V12. **Phase 7** = hub + alerts — MVP-2.
+
+Phase constraints: OS logic in collectors only (V1), Docker optional (V4), payload contract stable (V6/V7), UI via snapshot store not logs (V16). Local CI: `make ci-fast` / `docs/LOCAL_CI.md`.

@@ -1,0 +1,29 @@
+---
+description: Multi-agent routing — which subagent owns which paths
+alwaysApply: true
+---
+
+# Agent routing (this repo)
+
+Delegate to project subagents in `.cursor/agents/` when work is clearly in one domain. All write agents have **git + terminal** (`readonly: false`).
+
+| Path / topic | Subagent | Auto rules (globs) |
+|--------------|----------|-------------------|
+| `src/main/java/**/service/collector/**`, `model/**`, collectors | `collector-backend` | `metrics-collector-architecture`, `docker`, `payload` |
+| `src/main/resources/static/**`, `src/main/java/**/web/**` | `dashboard-ui` | `metrics-collector-ui` |
+| `src/main/java/**/hub/**`, `hub.html`, push/ingest | `hub-platform` | — |
+| `src/test/**`, `Makefile`, `tool/**`, `.github/**` | `test-ci` | — |
+| Pre-merge / "doğrula" / verify | `verifier` | readonly |
+
+## How to assign work
+
+- **Automatic**: Open or @-mention files in a folder — scoped `.mdc` rules attach via `globs`.
+- **Explicit**: In chat: *"Use collector-backend for MacNetworkUsageParser"* or *"@collector-backend fix parser"*.
+- **Parallel**: Independent domains (e.g. UI + hub test) → launch two subagents in parallel.
+
+## Do not
+
+- Split one small change across multiple agents.
+- Bypass council gate (`council-gate.mdc`) — stop and ask user if V1–V20 would be violated.
+
+See `.cursor/agents/README.md` for full setup.

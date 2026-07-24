@@ -1,0 +1,30 @@
+---
+description: Security and repo hygiene — secrets, logs, artifacts
+globs: "**/*.properties,**/.env*,**/application*.yml,.github/**"
+alwaysApply: false
+---
+
+# Security rules (V9–V10, V15)
+
+## V9 — No committed credentials
+
+Never commit API keys, tokens, or passwords in:
+- `application.properties`
+- `application-*.properties`
+- Any file under `src/`
+
+Use environment variables or external secret stores for production config.
+
+## V10 — No secrets in logs
+
+Do not log credentials, tokens, or full connection strings. Payload JSON must not include secrets.
+
+## V15 — No build artifacts in git
+
+Never commit:
+- `target/`
+- `metrics-collector.log*`
+- `smoke-*.log`
+- `.DS_Store`
+
+See `docs/REPO_HYGIENE.md`.

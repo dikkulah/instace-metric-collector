@@ -1,0 +1,36 @@
+---
+description: Metrics collector architecture — OS strategy, collectors, resilience
+globs: src/main/java/**/service/**,src/main/java/**/model/**
+alwaysApply: false
+---
+
+# Architecture rules (V1–V3, V8, V11, V14)
+
+## V1 — OS logic isolation
+
+Platform-specific code lives only under:
+- `service/collector/linux/`
+- `service/collector/mac/`
+- `service/collector/windows/`
+
+Do not add `ProcessBuilder`, `ps`, `systemctl`, `tasklist`, etc. to `InstanceMetricsSender` or `config/`.
+
+## V2 — MetricsCollector contract
+
+Every platform must implement `MetricsCollector`. Use `AbstractMetricsCollector` for shared JMX metrics.
+
+## V3 — Shell in collector layer only
+
+Shell/process execution belongs in collector implementations, not in the orchestration service.
+
+## V8 — Configurable schedules
+
+Use `application.properties` for intervals (`metrics.collection.interval`, `docker.collection.interval`). No hardcoded sleep loops in production code.
+
+## V11 — Graceful degradation
+
+Collector errors return empty collections or log warnings. Never let a single collector failure crash the Spring context or scheduled task.
+
+## V14 — Tests for new collectors
+
+New or changed collector logic requires unit tests in `src/test/java/`.
