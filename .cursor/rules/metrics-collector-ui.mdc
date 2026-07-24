@@ -1,0 +1,41 @@
+---
+description: Metrics dashboard UI — snapshot store, REST/SSE, headless mode
+globs: src/main/resources/static/**,src/main/java/**/web/**
+alwaysApply: false
+---
+
+# UI rules (V16–V20)
+
+## V16 — Snapshot store, not log parsing
+
+The dashboard must read from an in-memory `MetricsSnapshotStore` updated by `InstanceMetricsSender`.
+
+Do not tail or parse `metrics-collector.log` for UI data.
+
+## V17 — Non-blocking reads
+
+API and SSE endpoints read from the store only. No collector or shell calls in controller request threads.
+
+Store writes happen in the scheduled metrics loop — keep them fast (reference swap / copy).
+
+## V18 — Optional UI (headless mode)
+
+- `metrics.ui.enabled=false` must skip web controllers and static dashboard serving.
+- Agent continues JSON log output and scheduling unchanged.
+- Mirror the `docker.enabled` optional pattern.
+
+## V20 — i18n (no hardcoded UI strings)
+
+- All user-visible dashboard text uses keys from `static/locales/*.json`.
+- Ship **en** and **tr** in Phase 3; add locales only with full key parity.
+- Use `tool/i18n_lint.sh` before merge when touching locale files.
+- Format numbers/dates with `Intl` APIs — do not hardcode locale-specific formats in strings.
+- API response field names (`cpuLoad`, …) stay English — translate labels only.
+
+## UI package boundaries
+
+- `web/` — controllers, DTOs, snapshot store
+- `resources/static/` — HTML/CSS/JS only
+- No OS-specific logic in UI layer (V1)
+
+See `docs/UI_PLAN.md` for screen layout and API design.

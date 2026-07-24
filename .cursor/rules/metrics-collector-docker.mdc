@@ -1,0 +1,22 @@
+---
+description: Docker collector — optional feature, cache pattern
+globs: src/main/java/**/docker/**,src/main/java/**/config/DockerClientConfig.java
+alwaysApply: false
+---
+
+# Docker rules (V4–V5)
+
+## V4 — Optional Docker
+
+- `docker.enabled=false` must allow full application startup with no `DockerClient` bean.
+- Use `@ConditionalOnProperty` and `@Autowired(required = false)` for optional injection.
+- Tests use `docker.enabled=false` in test `application.properties`.
+
+## V5 — Non-blocking collection
+
+- `DockerContainerCollector` maintains a cache updated on its own `@Scheduled` interval.
+- `InstanceMetricsSender` reads `getCachedContainers()` — never calls Docker API synchronously in the main metrics loop.
+
+## Docker host resolution
+
+Follow existing `DockerClientConfig.resolveDockerHost()` order: property → `DOCKER_HOST` env → common socket paths.

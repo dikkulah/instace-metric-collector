@@ -1,0 +1,37 @@
+---
+description: Phase gates — HTTP push and actuator require approval
+alwaysApply: false
+---
+
+# Phase gate rules (V12–V13, V19)
+
+## V12 — HTTP push (Phase 2)
+
+Do not wire `RestTemplate.postForObject` (or similar) to `metrics.api.endpoint` without:
+1. Phase 1 exit criteria confirmed
+2. Explicit user approval to enter Phase 2
+3. ADR for push semantics (retry, failure handling)
+
+`RestTemplate` bean may exist; HTTP send is deferred until Phase 2 gate.
+
+## V13 — Actuator exposure (Phase 4)
+
+Do not expose Actuator endpoints (`management.endpoints.web.exposure.include`) without:
+1. Phase 3 complete (dashboard UI) or explicitly waived by user
+2. Explicit user approval to enter Phase 4
+3. Security review documented
+
+Actuator dependency on classpath is allowed; endpoint exposure is phase-gated.
+
+## V19 — Dashboard UI (Phase 3)
+
+Do not add `MetricsController`, static dashboard, or SSE endpoints without:
+1. Phase 1 exit criteria confirmed
+2. Explicit user approval to enter Phase 3
+3. ADR-003 accepted (`docs/DECISIONS/ADR-003-metrics-dashboard.md`)
+
+Follow `docs/UI_PLAN.md` for API and screen design. UI must use `MetricsSnapshotStore` (V16), not log parsing.
+
+## General
+
+See `docs/PHASE_GATES.md` for full phase definitions. Ask user before starting Phase N+1 work.
