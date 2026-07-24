@@ -2,10 +2,12 @@ package org.dikkulah.instancemetriccollector.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dikkulah.instancemetriccollector.model.MetricsPayload;
 import org.dikkulah.instancemetriccollector.service.collector.MetricsCollector;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -17,7 +19,7 @@ public class InstanceMetricsSender {
     private final RestTemplate restTemplate;
     private final MetricsCollector metricsCollector;
 
-    public InstanceMetricsSender(RestTemplate restTemplate, MetricsCollector metricsCollector) {
+    public InstanceMetricsSender(RestTemplate restTemplate,@Lazy MetricsCollector metricsCollector) {
         this.restTemplate = restTemplate;
         this.metricsCollector = metricsCollector;
     }
@@ -33,6 +35,9 @@ public class InstanceMetricsSender {
                 totalMemory,
                 metricsCollector.getRunningProcesses(),
                 metricsCollector.getRunningServices());
-        log.info(new ObjectMapper().writeValueAsString(payload));
+        
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        log.info(objectMapper.writeValueAsString(payload));
     }
 }

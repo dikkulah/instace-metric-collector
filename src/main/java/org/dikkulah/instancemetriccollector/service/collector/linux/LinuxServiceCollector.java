@@ -49,7 +49,7 @@ public class LinuxServiceCollector implements ServiceCollector {
             String status = columns[3];
             String description = columns[4];
 
-            return new ServiceInfo(serviceName, status, description);
+            return new ServiceInfo(serviceName, null, description);
         } catch (Exception e) {
             return null;
         }
