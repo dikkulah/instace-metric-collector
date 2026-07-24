@@ -50,7 +50,11 @@ public class InstanceMetricsSender {
                 totalMemory,
                 metricsCollector.getRunningProcesses(),
                 metricsCollector.getRunningServices(),
-                containers);
+                containers,
+                metricsCollector.getDiskUsage(),
+                metricsCollector.getNetworkUsage(),
+                metricsCollector.getAvailableProcessors(),
+                metricsCollector.getSystemLoadAverage());
 
         log.info(objectMapper.writeValueAsString(payload));
         logContainerWarnings(containers);

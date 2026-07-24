@@ -1,5 +1,10 @@
 package org.dikkulah.instancemetriccollector.service.collector;
 
+import org.dikkulah.instancemetriccollector.model.DiskUsageInfo;
+import org.dikkulah.instancemetriccollector.model.NetworkUsageInfo;
+
+import java.util.List;
+
 public interface MetricsCollector extends ProcessCollector, ServiceCollector {
 
     String getOSName();
@@ -28,7 +33,7 @@ public interface MetricsCollector extends ProcessCollector, ServiceCollector {
 
     String getCollectorName();
 
-    String getNetworkUsage();
+    List<DiskUsageInfo> getDiskUsage();
 
-    String getDiskUsage();
+    List<NetworkUsageInfo> getNetworkUsage();
 }

@@ -1,6 +1,8 @@
 package org.dikkulah.instancemetriccollector.service.collector.mac;
 
 import org.dikkulah.instancemetriccollector.config.OperatingSystemCondition;
+import org.dikkulah.instancemetriccollector.model.DiskUsageInfo;
+import org.dikkulah.instancemetriccollector.model.NetworkUsageInfo;
 import org.dikkulah.instancemetriccollector.model.OperatingSystem;
 import org.dikkulah.instancemetriccollector.model.ProcessInfo;
 import org.dikkulah.instancemetriccollector.model.ServiceInfo;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -27,36 +30,38 @@ public class MacMetricsCollector extends AbstractMetricsCollector {
     }
 
     @Override
-    public String getDiskUsage() {
+    public List<DiskUsageInfo> getDiskUsage() {
         try {
-            Process process = new ProcessBuilder("df", "-h").start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
+            Process process = new ProcessBuilder("df", "-k").start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append('\n');
+                }
+                return MacDiskUsageParser.parseDfOutput(sb.toString());
             }
-            return sb.toString();
         } catch (Exception e) {
             log.error("Error getting disk usage", e);
-            return "Error";
+            return Collections.emptyList();
         }
     }
 
     @Override
-    public String getNetworkUsage() {
+    public List<NetworkUsageInfo> getNetworkUsage() {
         try {
-            Process process = new ProcessBuilder("netstat", "-i").start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
+            Process process = new ProcessBuilder("netstat", "-ib").start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append('\n');
+                }
+                return MacNetworkUsageParser.parseNetstatOutput(sb.toString());
             }
-            return sb.toString();
         } catch (Exception e) {
             log.error("Error getting network usage", e);
-            return "Error";
+            return Collections.emptyList();
         }
     }
 
