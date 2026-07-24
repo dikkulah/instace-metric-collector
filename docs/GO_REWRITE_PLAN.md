@@ -39,10 +39,10 @@ See [`GO_REWRITE_STEPS.md`](GO_REWRITE_STEPS.md) for per-phase **build / run / v
 
 | Task | Done |
 |------|------|
-| `payload.MetricsPayload` record matching Java fields | [ ] |
-| Golden JSON fixture tests (Java sample → Go parse/serialize) | [ ] |
-| Ticker scheduler (`metrics.collection.interval`) | [ ] |
-| Log output: one JSON line per tick (Phase 1 parity) | [ ] |
+| `payload.MetricsPayload` record matching Java fields | [x] |
+| Golden JSON fixture tests (Java sample → Go parse/serialize) | [x] |
+| Ticker scheduler (`metrics.collection.interval`) | [x] |
+| Log output: one JSON line per tick (Phase 1 parity) | [x] |
 
 **Exit:** Golden tests pass; log line byte-compatible with Java samples.
 

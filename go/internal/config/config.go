@@ -16,6 +16,7 @@ type Config struct {
 	DockerCollectionPeriod  time.Duration
 	DemoMode                bool
 	HubEnabled              bool
+	LoggingFileName         string
 }
 
 // Load reads configuration from environment variables (Spring Boot relaxed binding).
@@ -28,6 +29,7 @@ func Load() Config {
 		DockerCollectionPeriod:  envDuration("DOCKER_COLLECTION_INTERVAL", 15*time.Second),
 		DemoMode:                envBool("DEMO_MODE", false),
 		HubEnabled:              envBool("METRICS_HUB_ENABLED", false),
+		LoggingFileName:         envString("LOGGING_FILE_NAME", "metrics-collector.log"),
 	}
 }
 

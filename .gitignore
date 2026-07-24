@@ -1,6 +1,7 @@
 metrics-collector.log*
 smoke-*.log
 logs/
+target/
 *.DS_Store
 
 ### IntelliJ IDEA ###

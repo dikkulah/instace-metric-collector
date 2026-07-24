@@ -1,0 +1,52 @@
+{
+  "cpuLoad": 0.42,
+  "usedMemory": 600,
+  "totalMemory": 1000,
+  "processInfos": [
+    {
+      "user": "app",
+      "pid": 1234,
+      "cpuUsage": 12.5,
+      "memoryUsage": 3.2,
+      "command": "/usr/bin/example"
+    }
+  ],
+  "serviceInfos": [
+    {
+      "serviceName": "com.example.service",
+      "status": "running",
+      "description": "Example launchd unit"
+    }
+  ],
+  "containers": [
+    {
+      "id": "abc123",
+      "name": "web",
+      "image": "nginx:latest",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0,
+      "composeProject": "demo",
+      "composeService": "web",
+      "ports": ["8080:80/tcp"]
+    }
+  ],
+  "diskUsage": [
+    {
+      "mount": "/",
+      "filesystem": "apfs",
+      "totalBytes": 1000000,
+      "usedBytes": 400000,
+      "usePercent": 40.0
+    }
+  ],
+  "networkUsage": [
+    {
+      "name": "en0",
+      "bytesReceived": 1024,
+      "bytesSent": 2048
+    }
+  ],
+  "availableProcessors": 10,
+  "systemLoadAverage": -1.0
+}
