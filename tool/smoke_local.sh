@@ -5,9 +5,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+LOG_FILE="${SMOKE_LOG:-$ROOT/smoke-metrics-collector.log}"
 INTERVAL_MS="${SMOKE_INTERVAL_MS:-3000}"
 WAIT_SECS="${SMOKE_WAIT_SECS:-12}"
 SERVER_PORT="${SMOKE_SERVER_PORT:-18080}"
+
+rm -f "$LOG_FILE"
 
 echo "==> Unit tests"
 make -C go test
@@ -28,6 +31,7 @@ METRICS_COLLECTION_INTERVAL="$INTERVAL_MS" \
 METRICS_UI_ENABLED=true \
 DOCKER_ENABLED="$DOCKER_ENABLED" \
 SERVER_PORT="$SERVER_PORT" \
+LOGGING_FILE_NAME="$LOG_FILE" \
 ./go/bin/agent >"$ROOT/smoke-stdout.log" 2>&1 &
 APP_PID=$!
 
@@ -56,6 +60,15 @@ echo "$RESP" | grep -q '"serviceInfos"' || { echo "ERROR: serviceInfos missing";
 echo "$RESP" | grep -q '"containers"' || { echo "ERROR: containers missing"; exit 1; }
 echo "$RESP" | grep -q '"diskUsage"' || { echo "ERROR: diskUsage missing"; exit 1; }
 echo "$RESP" | grep -q '"networkUsage"' || { echo "ERROR: networkUsage missing"; exit 1; }
+
+echo "==> Asserting JSON log payload"
+if [[ ! -f "$LOG_FILE" ]]; then
+  echo "ERROR: log file missing: $LOG_FILE"
+  exit 1
+fi
+grep -q '"cpuLoad"' "$LOG_FILE" || { echo "ERROR: cpuLoad missing in log"; exit 1; }
+grep -q '"usedMemory"' "$LOG_FILE" || { echo "ERROR: usedMemory missing in log"; exit 1; }
+grep -q '"processInfos"' "$LOG_FILE" || { echo "ERROR: processInfos missing in log"; exit 1; }
 
 echo "==> Smoke OK (docker.enabled=$DOCKER_ENABLED)"
 echo "    last payload snippet:"

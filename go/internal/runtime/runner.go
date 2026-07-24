@@ -17,6 +17,7 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/demo"
 	"github.com/dikkulah/instance-metric-collector/go/internal/docker"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
+	"github.com/dikkulah/instance-metric-collector/go/internal/logoutput"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
 	"github.com/dikkulah/instance-metric-collector/go/internal/web"
@@ -40,6 +41,16 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 	)
 
 	metricsStore := store.NewSnapshotStore(120)
+	var payloadLog *logoutput.PayloadWriter
+	if mode == appmode.Agent && cfg.LoggingFileName != "" {
+		var err error
+		payloadLog, err = logoutput.NewPayloadWriter(cfg.LoggingFileName)
+		if err != nil {
+			return fmt.Errorf("payload log: %w", err)
+		}
+		defer payloadLog.Close()
+		logger.Info("payload log enabled", "path", cfg.LoggingFileName)
+	}
 	var registry *hub.Registry
 	if mode == appmode.Hub {
 		registry = hub.NewRegistry()
@@ -109,6 +120,11 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				}
 				if mode == appmode.Agent {
 					metricsStore.Push(snap)
+					if payloadLog != nil {
+						if err := payloadLog.Write(snap.Payload); err != nil {
+							logger.Warn("payload log write failed", "err", err)
+						}
+					}
 				}
 				logger.Info("heartbeat",
 					"mode", string(mode),

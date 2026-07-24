@@ -29,11 +29,11 @@ Java/Spring Boot MVP (Phases 1–7) tamamlandı. Go rewrite (ADR-008) ile agent,
 
 | Özellik | Java'da | Go'da |
 |---------|---------|-------|
-| JSON log dosyası çıktısı | Var | G1 backlog |
+| JSON log dosyası çıktısı | Var | Tamamlandı (G1) |
 | Hub push client | Var | G5 backlog |
 | Webhook alerts | Var | G7 backlog |
 | Windows collector | Var | Stub |
-| Golden payload testleri | Var | G5 backlog |
+| Golden payload testleri | Var | Tamamlandı (G1) |
 | Actuator | Var | Yok (phase-gated V13) |
 
 Bu eksikler cutover'ı engellemez; dokümante edilir ve G5+ fazlarında tamamlanır.

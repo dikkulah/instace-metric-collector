@@ -11,6 +11,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("METRICS_UI_ENABLED", "")
 	t.Setenv("DOCKER_ENABLED", "")
 	t.Setenv("METRICS_HUB_ENABLED", "")
+	t.Setenv("LOGGING_FILE_NAME", "")
 
 	cfg := Load()
 	if cfg.ServerPort != "8080" {
@@ -27,6 +28,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.HubEnabled {
 		t.Fatal("HubEnabled should default false")
+	}
+	if cfg.LoggingFileName != "metrics-collector.log" {
+		t.Fatalf("LoggingFileName = %q", cfg.LoggingFileName)
 	}
 }
 
