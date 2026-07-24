@@ -7,6 +7,8 @@ import org.apache.commons.logging.LogFactory;
 import org.dikkulah.instancemetriccollector.model.ContainerInfo;
 import org.dikkulah.instancemetriccollector.model.MetricsPayload;
 import org.dikkulah.instancemetriccollector.service.collector.MetricsCollector;
+import org.dikkulah.instancemetriccollector.hub.HubLocalIngestService;
+import org.dikkulah.instancemetriccollector.hub.MetricsPushService;
 import org.dikkulah.instancemetriccollector.service.collector.docker.DockerContainerCollector;
 import org.dikkulah.instancemetriccollector.web.MetricsSnapshotStore;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,17 +28,23 @@ public class InstanceMetricsSender {
     private final ObjectMapper objectMapper;
     private final DockerContainerCollector dockerContainerCollector;
     private final MetricsSnapshotStore snapshotStore;
+    private final MetricsPushService pushService;
+    private final HubLocalIngestService hubLocalIngestService;
 
     public InstanceMetricsSender(RestTemplate restTemplate,
                                  @Lazy MetricsCollector metricsCollector,
                                  ObjectMapper objectMapper,
                                  @Autowired(required = false) DockerContainerCollector dockerContainerCollector,
-                                 @Autowired(required = false) MetricsSnapshotStore snapshotStore) {
+                                 @Autowired(required = false) MetricsSnapshotStore snapshotStore,
+                                 @Autowired(required = false) MetricsPushService pushService,
+                                 @Autowired(required = false) HubLocalIngestService hubLocalIngestService) {
         this.restTemplate = restTemplate;
         this.metricsCollector = metricsCollector;
         this.objectMapper = objectMapper;
         this.dockerContainerCollector = dockerContainerCollector;
         this.snapshotStore = snapshotStore;
+        this.pushService = pushService;
+        this.hubLocalIngestService = hubLocalIngestService;
     }
 
     @Scheduled(fixedRateString = "${metrics.collection.interval}")
@@ -63,6 +71,11 @@ public class InstanceMetricsSender {
         log.info(objectMapper.writeValueAsString(payload));
         if (snapshotStore != null) {
             snapshotStore.save(payload);
+        }
+        if (hubLocalIngestService != null) {
+            hubLocalIngestService.ingestLocal(payload);
+        } else if (pushService != null) {
+            pushService.push(payload);
         }
         logContainerWarnings(containers);
     }
