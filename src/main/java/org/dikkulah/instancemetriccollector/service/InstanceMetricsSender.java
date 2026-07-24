@@ -8,6 +8,7 @@ import org.dikkulah.instancemetriccollector.model.ContainerInfo;
 import org.dikkulah.instancemetriccollector.model.MetricsPayload;
 import org.dikkulah.instancemetriccollector.service.collector.MetricsCollector;
 import org.dikkulah.instancemetriccollector.service.collector.docker.DockerContainerCollector;
+import org.dikkulah.instancemetriccollector.web.MetricsSnapshotStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,15 +25,18 @@ public class InstanceMetricsSender {
     private final MetricsCollector metricsCollector;
     private final ObjectMapper objectMapper;
     private final DockerContainerCollector dockerContainerCollector;
+    private final MetricsSnapshotStore snapshotStore;
 
     public InstanceMetricsSender(RestTemplate restTemplate,
                                  @Lazy MetricsCollector metricsCollector,
                                  ObjectMapper objectMapper,
-                                 @Autowired(required = false) DockerContainerCollector dockerContainerCollector) {
+                                 @Autowired(required = false) DockerContainerCollector dockerContainerCollector,
+                                 @Autowired(required = false) MetricsSnapshotStore snapshotStore) {
         this.restTemplate = restTemplate;
         this.metricsCollector = metricsCollector;
         this.objectMapper = objectMapper;
         this.dockerContainerCollector = dockerContainerCollector;
+        this.snapshotStore = snapshotStore;
     }
 
     @Scheduled(fixedRateString = "${metrics.collection.interval}")
@@ -57,6 +61,9 @@ public class InstanceMetricsSender {
                 metricsCollector.getSystemLoadAverage());
 
         log.info(objectMapper.writeValueAsString(payload));
+        if (snapshotStore != null) {
+            snapshotStore.save(payload);
+        }
         logContainerWarnings(containers);
     }
 

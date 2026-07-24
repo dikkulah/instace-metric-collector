@@ -7,6 +7,8 @@ import org.dikkulah.instancemetriccollector.model.ProcessInfo;
 import org.dikkulah.instancemetriccollector.model.ServiceInfo;
 import org.dikkulah.instancemetriccollector.service.collector.MetricsCollector;
 import org.dikkulah.instancemetriccollector.service.collector.docker.DockerContainerCollector;
+import org.dikkulah.instancemetriccollector.web.MetricsSnapshotStore;
+import org.dikkulah.instancemetriccollector.web.MetricsUiProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -42,6 +44,28 @@ class InstanceMetricsSenderTest {
     private InstanceMetricsSender instanceMetricsSender;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void sendMetrics_writesToSnapshotStoreWhenPresent() throws Exception {
+        MetricsSnapshotStore store = new MetricsSnapshotStore(new MetricsUiProperties());
+        ReflectionTestUtils.setField(instanceMetricsSender, "snapshotStore", store);
+        ReflectionTestUtils.setField(instanceMetricsSender, "objectMapper", objectMapper);
+
+        when(metricsCollector.getCpuLoad()).thenReturn(0.25);
+        when(metricsCollector.getTotalMemorySize()).thenReturn(1000L);
+        when(metricsCollector.getFreeMemorySize()).thenReturn(400L);
+        when(metricsCollector.getAvailableProcessors()).thenReturn(10);
+        when(metricsCollector.getSystemLoadAverage()).thenReturn(2.5);
+        when(metricsCollector.getRunningProcesses()).thenReturn(List.of());
+        when(metricsCollector.getRunningServices()).thenReturn(List.of());
+        when(metricsCollector.getDiskUsage()).thenReturn(List.of());
+        when(metricsCollector.getNetworkUsage()).thenReturn(List.of());
+        when(dockerContainerCollector.getCachedContainers()).thenReturn(List.of());
+
+        instanceMetricsSender.sendMetrics();
+
+        assertEquals(600L, store.getLatest().payload().usedMemory());
+    }
 
     @Test
     void sendMetrics_includesContainersAndUsedMemory() throws Exception {
