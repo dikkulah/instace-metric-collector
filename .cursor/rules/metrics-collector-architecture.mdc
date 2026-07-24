@@ -1,6 +1,6 @@
 ---
 description: Metrics collector architecture — OS strategy, collectors, resilience
-globs: src/main/java/**/service/**,src/main/java/**/model/**
+globs: go/internal/collector/**,go/internal/runtime/**,go/internal/payload/**
 alwaysApply: false
 ---
 
@@ -8,29 +8,26 @@ alwaysApply: false
 
 ## V1 — OS logic isolation
 
-Platform-specific code lives only under:
-- `service/collector/linux/`
-- `service/collector/mac/`
-- `service/collector/windows/`
+Platform-specific code lives only under `go/internal/collector/` with GOOS build tags (`linux`, `darwin`, `windows`).
 
-Do not add `ProcessBuilder`, `ps`, `systemctl`, `tasklist`, etc. to `InstanceMetricsSender` or `config/`.
+Do not add shell/process calls to `internal/runtime` or `internal/web`.
 
-## V2 — MetricsCollector contract
+## V2 — Collector contract
 
-Every platform must implement `MetricsCollector`. Use `AbstractMetricsCollector` for shared JMX metrics.
+Every platform implements `collector.Collector`. Shared system metrics use gopsutil in `system.go`.
 
 ## V3 — Shell in collector layer only
 
-Shell/process execution belongs in collector implementations, not in the orchestration service.
+Shell/process execution belongs in collector implementations, not in the scheduler or HTTP handlers.
 
 ## V8 — Configurable schedules
 
-Use `application.properties` for intervals (`metrics.collection.interval`, `docker.collection.interval`). No hardcoded sleep loops in production code.
+Use env vars (`METRICS_COLLECTION_INTERVAL`, `DOCKER_COLLECTION_INTERVAL`). No hardcoded sleep loops in production code.
 
 ## V11 — Graceful degradation
 
-Collector errors return empty collections or log warnings. Never let a single collector failure crash the Spring context or scheduled task.
+Collector errors return partial payloads or log warnings. Never crash the scheduler on a single failed collection.
 
 ## V14 — Tests for new collectors
 
-New or changed collector logic requires unit tests in `src/test/java/`.
+New or changed collector logic requires unit tests in `go/internal/collector/`.

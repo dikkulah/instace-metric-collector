@@ -1,6 +1,6 @@
 ---
 description: MetricsPayload JSON contract — backward compatibility
-globs: src/main/java/**/model/MetricsPayload.java,src/main/java/**/service/InstanceMetricsSender.java
+globs: go/internal/payload/**,go/internal/logoutput/**,go/testdata/**
 alwaysApply: false
 ---
 
@@ -10,17 +10,17 @@ alwaysApply: false
 
 `MetricsPayload` field changes must be additive unless:
 1. An ADR documents the breaking change
-2. Version is bumped in `pom.xml`
+2. Version is bumped in release tags
 3. Downstream consumers are notified
 
 Prefer optional new fields with sensible defaults over renaming/removing fields.
 
 ## V7 — JSON log as contract
 
-The `log.info(objectMapper.writeValueAsString(payload))` output is the external integration contract.
+The `logoutput` JSON line per tick is an external integration contract.
 
 - Document schema changes in `docs/DECISIONS/` ADR
-- Update smoke test assertions in `tool/smoke_local.sh` when adding required fields
+- Update golden fixture in `go/testdata/` and smoke assertions when adding required fields
 - Keep field names stable for log parsers
 
-Current required fields: `cpuLoad`, `usedMemory`, `totalMemory`, `processInfos`, `serviceInfos`, `containers`.
+Current required fields: `cpuLoad`, `usedMemory`, `totalMemory`, `processInfos`, `serviceInfos`, `containers`, `diskUsage`, `networkUsage`.

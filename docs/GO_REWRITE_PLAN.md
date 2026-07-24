@@ -3,7 +3,7 @@
 **Priority:** First major roadmap item after Java MVP (user decision, Jul 2026).  
 **ADR:** [ADR-008-go-rewrite.md](DECISIONS/ADR-008-go-rewrite.md)
 
-Java implementation stays on `master` as reference until Go reaches parity. New work lands under `go/` unless a hotfix is required in Java.
+Java implementation removed (ADR-009). Runtime is `go/` only.
 
 ---
 
@@ -11,7 +11,7 @@ Java implementation stays on `master` as reference until Go reaches parity. New 
 
 1. **Contract first** — `MetricsPayload` JSON and `/api/metrics/*` shapes match Java (additive only).
 2. **Strangler** — Run Go agent beside Java hub (or vice versa) only after ingest contract tests pass.
-3. **React SPA UI** — `go/web/frontend` (Vite + React + TypeScript + Tailwind); Stitch design tokens; embedded via `go/internal/webui` (`embed.FS`). Legacy Java static assets remain reference-only under `src/main/resources/static/`.
+3. **React SPA UI** — `go/web/frontend` (Vite + React + TypeScript + Tailwind); embedded via `go/internal/webui` (`embed.FS`).
 4. **OS logic in collectors only** (V1) — `internal/collector/{linux,darwin,windows}/`.
 5. **Docker optional** (V4) — `docker.enabled=false` must start cleanly.
 6. **Historic: store rich first** — ingest tam `MetricsPayload`; prod’da `metrics.history.profile` ile retention/rollup kısılır, alan atılmaz (Phase G7 / Phase 10).

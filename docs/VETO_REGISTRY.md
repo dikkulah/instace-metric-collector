@@ -18,7 +18,7 @@ Canonical list for agent veto scans. Rule files in `.cursor/rules/` map to these
 | V12 | Phase | HTTP push (`metrics.api.endpoint`) not enabled without Phase 2 gate + user approval | `metrics-collector-phase-gates.mdc` |
 | V13 | Phase | Actuator endpoint exposure not enabled without Phase 4 gate + user approval | `metrics-collector-phase-gates.mdc` |
 | V14 | Testing | New collector logic requires unit test | `metrics-collector-architecture.mdc` |
-| V15 | Repo | `target/`, `*.log`, `.DS_Store` never committed | `metrics-collector-security.mdc` |
+| V15 | Repo | `target/` (legacy), `go/bin/`, `*.log`, `.DS_Store` never committed | `metrics-collector-security.mdc` |
 | V16 | UI | Dashboard reads from `MetricsSnapshotStore`, not log file parsing | `metrics-collector-ui.mdc` |
 | V17 | UI | UI/API layer must not block collector scheduler threads | `metrics-collector-ui.mdc` |
 | V18 | UI | `metrics.ui.enabled=false` allows headless mode without web UI | `metrics-collector-ui.mdc` |

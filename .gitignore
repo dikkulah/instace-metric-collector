@@ -1,20 +1,22 @@
+# Runtime / smoke output
 metrics-collector.log*
 smoke-*.log
 logs/
-target/
-*.DS_Store
 
-### IntelliJ IDEA ###
-.idea
+# Build artifacts
+target/
+go/bin/
+go/internal/webui/dist/
+go/web/frontend/dist/
+go/web/frontend/node_modules/
+
+# OS / IDE
+*.DS_Store
+.idea/
 *.iws
 *.iml
 *.ipr
-
-### VS Code ###
 .vscode/
 
-### Go ###
-go/bin/
-go/web/frontend/dist/
-go/web/frontend/node_modules/
-go/internal/webui/dist/
+# Local MCP secrets (example is committed)
+.cursor/mcp.github.json

@@ -1,6 +1,8 @@
 # Go rewrite — aşamalı uygulama planı (Java terk)
 
-**Karar:** [ADR-008](DECISIONS/ADR-008-go-rewrite.md) — Java referans kalır, Go birincil runtime olana kadar `go/` altında geliştirilir.
+**Karar:** [ADR-008](DECISIONS/ADR-008-go-rewrite.md) · Java kaldırıldı: [ADR-009](DECISIONS/ADR-009-java-removal.md).
+
+**Komutlar:** `make build`, `make test`, `make run` (eski `make go-*` alias'ları kaldırıldı).
 
 **İlke:** Her faz sonunda **build + test + (mümkünse) run** — çalışır artefakt bırakmadan sonraki faza geçilmez.
 
@@ -39,10 +41,10 @@ flowchart LR
 ### Doğrulama (her değişiklikten sonra)
 
 ```bash
-make go-build          # → go/bin/agent, go/bin/hub
-make go-test           # → PASS
-METRICS_COLLECTION_INTERVAL=5000 make go-run   # heartbeat log, Ctrl+C
-make go-run-hub        # hub skeleton (exit veya heartbeat)
+make build          # → go/bin/agent, go/bin/hub
+make test           # → PASS
+METRICS_COLLECTION_INTERVAL=5000 make run   # heartbeat log, Ctrl+C
+make run-hub        # hub skeleton (exit veya heartbeat)
 ```
 
 **Exit:** Agent SIGTERM ile temiz kapanır; CI `go test ./...` yeşil.
@@ -64,8 +66,8 @@ make go-run-hub        # hub skeleton (exit veya heartbeat)
 ### Build / run (G1 exit)
 
 ```bash
-make go-build && make go-test
-METRICS_COLLECTION_INTERVAL=5000 make go-run
+make build && make test
+METRICS_COLLECTION_INTERVAL=5000 make run
 # Beklenen: stdout veya metrics-collector.log benzeri TEK SATIR JSON / tick
 # Golden: go test ./internal/payload/... -run Golden
 ```
@@ -90,8 +92,8 @@ METRICS_COLLECTION_INTERVAL=5000 make go-run
 ### Build / run (G2 exit)
 
 ```bash
-make go-build && make go-test
-METRICS_COLLECTION_INTERVAL=10000 make go-run
+make build && make test
+METRICS_COLLECTION_INTERVAL=10000 make run
 # JSON'da: cpuLoad, usedMemory, processInfos[], serviceInfos[], diskUsage[], networkUsage[]
 # Linux CI: GOOS=linux go test ./internal/collector/linux/...
 ```
@@ -114,9 +116,9 @@ METRICS_COLLECTION_INTERVAL=10000 make go-run
 ### Build / run (G3 exit)
 
 ```bash
-DOCKER_ENABLED=true make go-run    # containers[] dolu
-DOCKER_ENABLED=false make go-run   # containers[] boş veya yok, hata yok
-make go-test
+DOCKER_ENABLED=true make run    # containers[] dolu
+DOCKER_ENABLED=false make run   # containers[] boş veya yok, hata yok
+make test
 ```
 
 ---
@@ -139,8 +141,8 @@ make go-test
 ### Build / run (G4 exit)
 
 ```bash
-make ui-build && make go-build && make go-test
-METRICS_UI_ENABLED=true SERVER_PORT=8080 make go-run   # veya 9080 Java çakışması varsa
+make ui-build && make build && make test
+METRICS_UI_ENABLED=true SERVER_PORT=8080 make run   # veya 9080 Java çakışması varsa
 open http://localhost:8080/
 open http://localhost:8080/containers
 open http://localhost:8080/container-metrics?id=abc123def456&tab=overview
@@ -149,7 +151,7 @@ open http://localhost:8080/container-metrics?id=abc123def456&tab=overview
 # Terminal 2: cd go/web/frontend && npm run dev
 ```
 
-**Exit:** React SPA tüm route'larda çalışır; hub mode `make go-run-hub` + `/hub`.
+**Exit:** React SPA tüm route'larda çalışır; hub mode `make run-hub` + `/hub`.
 
 ---
 
@@ -168,11 +170,11 @@ open http://localhost:8080/container-metrics?id=abc123def456&tab=overview
 ### Build / run (G5 exit)
 
 ```bash
-make go-build
+make build
 # Terminal 1:
-METRICS_HUB_ENABLED=true SERVER_PORT=8081 make go-run-hub
+METRICS_HUB_ENABLED=true SERVER_PORT=8081 make run-hub
 # Terminal 2:
-METRICS_HUB_ENABLED=true METRICS_PUSH_URL=http://127.0.0.1:8081/api/v1/ingest make go-run
+METRICS_HUB_ENABLED=true METRICS_PUSH_URL=http://127.0.0.1:8081/api/v1/ingest make run
 open http://localhost:8081/hub.html
 curl -s http://localhost:8081/api/v1/agents | jq
 ```
@@ -192,7 +194,7 @@ curl -s http://localhost:8081/api/v1/agents | jq
 ### Build / run (G6 exit)
 
 ```bash
-make go-docker-build
+make docker-build
 docker compose -f docker-compose.go.yml up -d
 ./scripts/smoke-go.sh   # veya mevcut smoke'un Go varyantı
 ```
@@ -205,24 +207,23 @@ SQLite, tam payload ingest, retention profiles — [`HISTORY_ALERTS_DIAGNOSTICS_
 
 ---
 
-## Java terk zaman çizelgesi
+## Cutover durumu (ADR-009)
 
-| Milestone | Aksiyon |
-|-----------|---------|
-| G4 merge | `make run` (Java) yerine `make go-run` günlük dev |
-| G5 merge | Hub staging Go-only |
-| G6 tag | Java `main` freeze; yalnızca güvenlik hotfix |
-| +3 ay | Java artifact deprecated README |
+| Milestone | Durum |
+|-----------|--------|
+| Go cutover | ✅ Java kaldırıldı, `make run` = Go agent |
+| G5 hub push | Backlog |
+| G7 history | Backlog |
 
 ---
 
 ## Her PR / adım checklist
 
 ```bash
-make go-build
-make go-test
+make build
+make test
 # ilgili faz run komutu (yukarıda)
-make ci-fast          # Java regression (G4'e kadar)
+make ci-fast          # Go unit tests
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 description: Security and repo hygiene — secrets, logs, artifacts
-globs: "**/*.properties,**/.env*,**/application*.yml,.github/**"
+globs: "**/.env*,.github/**,docker-compose.yml"
 alwaysApply: false
 ---
 
@@ -8,10 +8,7 @@ alwaysApply: false
 
 ## V9 — No committed credentials
 
-Never commit API keys, tokens, or passwords in:
-- `application.properties`
-- `application-*.properties`
-- Any file under `src/`
+Never commit API keys, tokens, or passwords in env files or compose overrides.
 
 Use environment variables or external secret stores for production config.
 
@@ -22,9 +19,9 @@ Do not log credentials, tokens, or full connection strings. Payload JSON must no
 ## V15 — No build artifacts in git
 
 Never commit:
-- `target/`
-- `metrics-collector.log*`
-- `smoke-*.log`
+- `go/bin/`, `go/internal/webui/dist/`, `go/web/frontend/node_modules/`
+- `target/` (legacy Java)
+- `metrics-collector.log*`, `smoke-*.log`
 - `.DS_Store`
 
 See `docs/REPO_HYGIENE.md`.

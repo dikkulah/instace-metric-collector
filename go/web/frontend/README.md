@@ -1,13 +1,13 @@
 # React SPA (Go agent/hub UI)
 
-Vite + React + TypeScript + Tailwind. Design tokens from Stitch (Instance Metric Collector design system).
+Vite + React + TypeScript + Tailwind. Design tokens from Stitch.
 
 ## Dev (hot reload)
 
 Terminal 1 — Go agent API:
 
 ```bash
-make go-run
+make run
 ```
 
 Terminal 2 — Vite dev server (proxies `/api` to :8080):
@@ -27,8 +27,7 @@ VITE_API_PROXY=http://127.0.0.1:8081 npm run dev
 ## Production build (embedded in Go binary)
 
 ```bash
-make ui-build          # npm run build + copy dist → go/internal/webui/dist
-make go-build          # includes ui-sync-dist
+make build
 METRICS_UI_ENABLED=true SERVER_PORT=8080 ./go/bin/agent
 ```
 
@@ -41,8 +40,8 @@ Open http://localhost:8080
 | `/` | Dashboard overview |
 | `/processes` | Process list + detail (`?pid=`) |
 | `/services` | Service list + detail (`?service=`) |
-| `/containers` | Master-detail containers (Stitch v2) |
-| `/container-metrics` | Full container agent dashboard (`?id=&tab=`) |
+| `/containers` | Master-detail containers |
+| `/container-metrics` | Container agent dashboard (`?id=&tab=`) |
 | `/hub` | Hub agent list (hub mode) |
 
 ## i18n

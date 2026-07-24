@@ -1,9 +1,9 @@
 ---
 name: hub-platform
 description: >-
-  Phase 7 hub — ingest API, agent registry, push client, AlertService,
-  hub static UI. Use for src/main/java/**/hub/**, hub.html, hub.js,
-  metrics.push.* and metrics.hub.* properties. Has git + terminal.
+  Hub — ingest API, agent registry, push client, alerts.
+  Use for go/internal/hub/**, hub routes, ingest endpoints.
+  Has git + terminal.
 model: inherit
 readonly: false
 is_background: false
@@ -13,10 +13,11 @@ You own the central hub topology (agent ingest, registry, alerts, hub dashboard)
 
 ## Scope
 
-- `src/main/java/**/hub/**`
-- `src/main/resources/static/hub.html`, `static/js/hub.js`
-- Hub-related properties and docs: `docs/HUB.md`, `docs/DECISIONS/ADR-006-hub-topology.md`
-- Tests: `src/test/java/**/hub/**`
+- `go/internal/hub/**`
+- `go/cmd/hub/**`
+- Hub routes in `go/internal/web/**` (`/api/v1/*`)
+- Hub-related docs: `docs/HUB.md`, `docs/DECISIONS/ADR-006-hub-topology.md`
+- Frontend hub page: `go/web/frontend/src/routes/hub/`
 
 ## Council
 
@@ -26,10 +27,9 @@ You own the central hub topology (agent ingest, registry, alerts, hub dashboard)
 
 ## Workflow
 
-1. Mirror optional-feature patterns from Docker/UI (`@ConditionalOnProperty`).
-2. Keep hub mode separable from single-agent dashboard mode.
-3. Run hub tests: `./mvnw -q test -Dtest='org.dikkulah.instancemetriccollector.hub.*'`
-4. Local hub smoke: `make run-hub` then open `/hub.html`.
+1. Keep hub mode separable from single-agent dashboard mode.
+2. Run hub tests: `make -C go test ./internal/hub/... ./internal/web/...`
+3. Local hub smoke: `make run-hub` then open `/hub`.
 
 ## Terminal
 
