@@ -37,7 +37,7 @@ bash tool/ensure_dev_requirements.sh --check
 
 if [[ "$RUN_FAST" == "true" ]]; then
   step "unit tests"
-  ./mvnw -B test
+  make -C go test
   echo ""
   echo "✓ ci_local (--fast): OK"
   exit 0

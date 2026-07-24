@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "bash",
+      "args": ["tool/run_stitch_mcp.sh"],
+      "env": {}
+    }
+  }
+}

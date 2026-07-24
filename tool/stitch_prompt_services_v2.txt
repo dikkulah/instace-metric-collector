@@ -1,0 +1,14 @@
+Design SCREEN: Services page for "Instance Metric Collector".
+Desktop 1440px dark mode. 60/40 split.
+
+LEFT 60%:
+- Search "Search by service name…"
+- Tree|List segmented control with sliding background indicator (Tree active)
+- Service tree with vertical guideline connectors, chevron expand/collapse, domain breadcrumb paths (com.docker.docker, homebrew.mxcl.postgresql)
+- Status pills (RUNNING green breath dot, STOPPED gray, ERROR red)
+
+RIGHT 40%:
+- Service details: identifier (mono), domain breadcrumb, description
+- Related processes table with ~likely badges and "View process" links
+
+Header nav Services ACTIVE. Precision Ops Console, Inter + JetBrains Mono.

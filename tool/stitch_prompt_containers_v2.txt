@@ -1,0 +1,21 @@
+Redesign SCREEN: Docker Containers page (v2) for "Instance Metric Collector" monitoring app.
+
+Use existing design system. Desktop 1440px dark mode. Match Container Metrics full-page visual language.
+
+HEADER: Nav Dashboard | Processes | Services | [Containers ACTIVE] | Title "Docker containers" | EN▾ | ● Live | Last update
+
+MAIN: 55/45 master-detail split, full viewport height.
+
+LEFT (master): Search "Search containers…" + count "12 containers". Dense selectable list rows (not loose grid). Each row: container name, image:tag mono, status pill, health badge, restart count, port chips (8081:8080/tcp), optional "Agent" badge. One row SELECTED with blue left accent.
+
+Sample: instace-metric-collector-metrics-collector-1 (healthy, Agent, selected), redis, postgres, nginx.
+
+RIGHT (detail) when selected:
+- Hero: status tag, name H2, mono ID + copy, CTAs: "Full metrics page" + "Open agent dashboard"
+- Pill sub-nav tabs: [ Overview ] [ Processes ] [ Services ]
+- Overview: metadata definition grid + compose peers table + mini CPU/RAM/Processes cards for agent containers
+- Processes tab: compact process table + embedded process detail panel below + "Open full page" link
+- Services tab: tree/list + embedded service detail panel below + "Open full page" link
+- Empty state: "Select a container to view details"
+
+Also show mobile 390px artboard variant. Precision ops console, Inter + JetBrains Mono, no purple gradients.

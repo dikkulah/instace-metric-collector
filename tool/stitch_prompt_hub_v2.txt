@@ -1,0 +1,10 @@
+Design SCREEN: Hub agents overview for "Instance Metric Collector".
+Desktop 1440px dark mode.
+
+Title "Hub" with search "Search agents…" and Live pulsing dot.
+
+Grid of agent cards (3 columns):
+Each card: hostname H3, agentId mono, lastSeen relative ("2s ago"), CPU% with progress bar, Memory% with progress bar + used/total bytes, container count badge.
+Stale agents (>30s) show muted "Stale" badge.
+
+One card highlighted as recently active. Dark Precision Ops Console tokens.

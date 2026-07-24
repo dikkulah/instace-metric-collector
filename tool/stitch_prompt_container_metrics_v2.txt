@@ -1,0 +1,21 @@
+Update SCREEN: Container Metrics full page (v2) for "Instance Metric Collector".
+
+Desktop 1440px dark mode. Agent cgroup dashboard inside Docker container.
+
+HEADER: Nav | Title = container name "instace-metric-collector-metrics-collector-1" | EN▾ | ● Live | Last update
+
+HERO: "← Back to containers" link, healthy badge, container name, mono ID, hint "Metrics collector agent — same dashboard structure as the host."
+
+CONTAINER PICKER: horizontal scroll pill strip "Switch container" with Agent badges, one active.
+
+PILL TABS: [ Overview ] [ Processes ] [ Services ]
+
+Overview tab: 3 summary cards (CPU, Memory, Containers), Disk+Network panels, nested Docker containers grid.
+
+Processes tab: 60/40 split — process table left, full Process details right (command block, peers, related services).
+
+Services tab: 60/40 split — service tree with sort + Tree|List toggle left, full Service details right (breadcrumb, segments, siblings, related processes).
+
+ERROR state artboard: banner "Container agent metrics are not reachable".
+
+Match Instance Metric Collector design system. Bilingual EN/TR hints in header.

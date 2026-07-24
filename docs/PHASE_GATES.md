@@ -103,6 +103,7 @@ Phase N+1 work requires Phase N exit criteria met **and explicit user approval**
 
 ```mermaid
 flowchart TD
+    G0["Phase G0–G6: Go rewrite ★ FIRST"]
     P1["Phase 1: JSON log ✓"]
     P2["Phase 2: HTTP push"]
     P3["Phase 3: Dashboard UI ✓"]
@@ -114,6 +115,7 @@ flowchart TD
     P11["Phase 11: Alert platform"]
     P12["Phase 12: Diagnostics"]
 
+    G0 --> P10
     P1 --> P2
     P1 --> P3
     P3 --> P4
@@ -126,6 +128,28 @@ flowchart TD
     P11 --> P12
     P10 -.->|"historic UI"| P3
 ```
+
+---
+
+## Phase G — Go rewrite (NEXT — user approved)
+
+**Scope:** Agent + hub in Go; single binary, no JVM. Java codebase = reference until parity.
+
+**Entry gate:** User approval — **granted** (Jul 2026).
+
+**First step:** Phase G0 scaffold — **complete** (`go/`, `make go-build`, CI `go-test` job).
+
+**Plan:** [`GO_REWRITE_PLAN.md`](GO_REWRITE_PLAN.md)  
+**ADR:** [`DECISIONS/ADR-008-go-rewrite.md`](DECISIONS/ADR-008-go-rewrite.md)
+
+**Exit criteria (full Go MVP):**
+- [ ] G1–G6 checklist in `GO_REWRITE_PLAN.md`
+- [x] G0 scaffold (`go/`, cmd/agent, cmd/hub, config, heartbeat)
+- [ ] `MetricsPayload` golden tests vs Java
+- [ ] Dashboard + hub UI on Go agent/hub
+- [ ] Docker deploy + cross-compile documented
+
+**Status:** G0 complete — **G1 (payload + scheduler) is next**. Java: hotfixes only.
 
 ---
 
@@ -155,11 +179,15 @@ Aşağıdaki fazlar **resmi gate değildir**; MVP-2 tamamlandıktan sonra öncel
 
 **Hedef segment:** Power user, MSP, air-gapped
 
+**Veri ilkesi:** Ingest’te **tam `MetricsPayload`** (süreç komut satırı, tüm servis/container/disk/network dahil). Prod’da `metrics.history.profile` ile yalnızca **retention ve rollup** kısılır — ileride diagnostics/alert için veri eksikliği olmaz. Detay: [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md#veri-zenginliği-stratejisi-kullanıcı-kararı-jul-2026).
+
 **Taslak kapsam:**
-- Hub SQLite (M18 ile birleşik) — ingest sonrası kalıcı `metric_samples`
-- Retention policy + downsampled series API
-- UI: **Live | History** toggle, zaman aralığı, CPU/RAM/disk grafikleri
+- Hub SQLite — Tier 0 `raw_samples` + `payload_json` NOT NULL
+- Retention policy + hourly/daily rollup + `metrics.history.profile` (`full`|`standard`|`minimal`)
+- Normalized tablolar (10b): process/service/container samples
+- UI: **Live | History** toggle, zaman aralığı, CPU/RAM/disk grafikleri + drill-down
 - Agent yerel history (opsiyonel Phase 10b)
+- Go: Phase **G7** ile aynı store (tercih edilen runtime)
 
 **Önkoşul:** Phase 7 hub  
 **Plan:** [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md)
@@ -227,9 +255,7 @@ Aşağıdaki fazlar **resmi gate değildir**; MVP-2 tamamlandıktan sonra öncel
 
 **Hedef:** JVM footprint azaltma (edge segment)
 
-**Durum:** Spike only — ADR gerekir; Spring Boot 3 native uyumluluk ve collector shell bağımlılıkları riskli.
-
-**Karar:** Phase 9 sonrası değerlendirilir; MVP taahhüdü değil.
+**Durum:** **Superseded** by [Go rewrite](GO_REWRITE_PLAN.md) (ADR-008). GraalVM spike no longer planned.
 
 ---
 
@@ -242,7 +268,7 @@ Aşağıdaki fazlar **resmi gate değildir**; MVP-2 tamamlandıktan sonra öncel
 | Phase 12 | Diagnostics + runbook | MVP-3 |
 | Phase 8 | Multi-tenant + white-label | MVP-3 |
 | Phase 9 | Watchdog + installers | MVP-3 |
-| Araştırma | GraalVM native | — |
+| Araştırma | GraalVM native | — (→ Go ADR-008) |
 | MVP-3 diğer | Prometheus exporter, starter, PDF rapor, paylaşım linki | Ürün spec M14–M17 |
 
 Detay: [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md) · [`MARKET_SCENARIOS.md`](MARKET_SCENARIOS.md)

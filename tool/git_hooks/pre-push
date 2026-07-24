@@ -5,5 +5,5 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 echo "pre-push: unit tests"
-./mvnw -B -q test
+make -C go test
 echo "pre-push: OK"

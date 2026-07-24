@@ -1,124 +1,84 @@
 # instance-metric-collector
 
-Host metriklerini toplayan, zamanlanmış JSON log üreten Spring Boot arka plan ajanı.
+Host metriklerini toplayan Go ajanı — REST/SSE API ve gömülü React dashboard.
 
 ## Ne yapar?
 
-- CPU ve bellek kullanımını izler (JMX)
-- Çalışan süreçleri ve servisleri listeler (OS-spesifik shell komutları)
-- İsteğe bağlı olarak Docker container metriklerini toplar (cache + ayrı schedule)
-- Sonuçları `MetricsPayload` JSON olarak log dosyasına yazar
+- CPU, bellek, disk ve ağ kullanımını izler (gopsutil)
+- Çalışan süreçleri ve servisleri listeler (OS-spesifik: launchctl / systemctl)
+- İsteğe bağlı Docker container metrikleri (cache + ayrı schedule)
+- Son snapshot'ı REST/SSE ile sunar; hub modunda agent kaydı
 
 ## Hızlı başlangıç
 
 ```bash
 make onboard    # ilk kurulum (deps + hooks)
-make run        # uygulamayı başlat
-make ci-fast    # günlük doğrulama (unit test)
+make run        # agent + UI → http://localhost:8080
+make ci-fast    # günlük doğrulama (go test)
 make ci-smoke   # milestone öncesi (test + kısa smoke run)
 ```
 
 ## Mimari özeti
 
 ```
-InstanceMetricsSender (@Scheduled)
-    ├── MetricsCollector (@Primary, OS-spesifik)
-    │   ├── LinuxMetricsCollector
-    │   ├── MacMetricsCollector
-    │   └── WindowsMetricsCollector
-    └── DockerContainerCollector (opsiyonel, cache)
-            → MetricsPayload → JSON log
+cmd/agent
+    ├── internal/runtime (scheduler)
+    ├── internal/collector (OS-spesifik)
+    ├── internal/docker (opsiyonel)
+    └── internal/web (REST + SSE + gömülü SPA)
 ```
 
-Detay: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Detay: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Go plan: [`docs/GO_REWRITE_PLAN.md`](docs/GO_REWRITE_PLAN.md)
 
 ## Yol haritası
 
 | Phase | Özellik | Durum |
 |-------|---------|-------|
-| 1 | JSON log + collector'lar | Tamamlandı |
-| 2 | HTTP push → hub ingest | Tamamlandı (Phase 7) — [`docs/HUB.md`](docs/HUB.md) |
-| **3** | **Canlı metrik dashboard UI (EN + TR)** | **Tamamlandı** |
-| 4 | Actuator health | Tamamlandı — [`docs/ACTUATOR.md`](docs/ACTUATOR.md) |
-| 5 | Dockerfile + docker compose | Tamamlandı — [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) |
-| 6 | Disk/network metrikleri | Tamamlandı — [ADR-005](docs/DECISIONS/ADR-005-disk-network-payload.md) |
-| 7 | Hub + alert (MVP-2) | Tamamlandı — [`docs/HUB.md`](docs/HUB.md) |
-| **10** | **Historic mod + kalıcı geçmiş** | **Planlandı** — [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](docs/HISTORY_ALERTS_DIAGNOSTICS_PLAN.md) |
-| **11** | **Alert platformu** | Planlandı |
-| **12** | **Diagnostics / tanı** | Planlandı |
-| 8–9 | Multi-tenant, watchdog | MVP-3 backlog |
+| G0–G4 | Go agent/hub, collector'lar, REST/SSE, React SPA | Tamamlandı |
+| G5 | Hub push client, golden payload testleri | Backlog |
+| G6 | Docker deploy (Go image) | Tamamlandı |
+| G7 | Historic store, alerts | Planlandı — [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](docs/HISTORY_ALERTS_DIAGNOSTICS_PLAN.md) |
 
-Pazar senaryoları ve müşteri segmentleri: [`docs/MARKET_SCENARIOS.md`](docs/MARKET_SCENARIOS.md)
-
-Phase 3 sonrası `make run` → `http://localhost:8080` üzerinden metrikler canlı izlenebilir. Ürün vizyonu: [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md)
+Java MVP (Phases 1–7) referans olarak korunur; runtime artık `go/` altında. Kaldırma: [`ADR-009`](docs/DECISIONS/ADR-009-java-removal.md).
 
 ## Geliştirme
 
 | Komut | Açıklama |
 |-------|----------|
 | `make help` | Tüm hedefler |
-| `make test` | Unit testler |
-| `make setup-hooks` | Pre-push hook (mvn test) |
-| `make doctor` | Java 21 + mvnw kontrolü |
+| `make test` | Go unit testleri |
+| `make setup-hooks` | Pre-push hook (go test) |
+| `make doctor` | Go + Node + Docker kontrolü |
+| `make build` | agent + hub binary (UI dahil) |
+| `make run-hub` | Hub modu → `:8081` |
 
 Katkı: [`CONTRIBUTING.md`](CONTRIBUTING.md)  
 Agent kuralları: [`AGENTS.md`](AGENTS.md)
 
 ## Tech stack
 
-- Java 21, Spring Boot 3.3.4
-- Maven wrapper (`./mvnw`)
-- docker-java (opsiyonel container izleme)
+- **Runtime:** Go 1.22+
+- **UI:** React 19 + Vite + TypeScript + Tailwind
+- **Collectors:** gopsutil, launchctl (macOS), systemctl (Linux)
+- **Docker:** moby client (opsiyonel, `DOCKER_ENABLED=false` ile kapalı)
 
-## Docker
+## Hub
 
-```bash
-make docker-up      # build + start → http://localhost:8080
-make docker-down
-make docker-smoke   # automated compose smoke
-```
-
-macOS Docker Desktop:
+Çoklu agent görünümü için hub binary:
 
 ```bash
-export DOCKER_SOCKET="$HOME/.docker/run/docker.sock"
-make docker-up
-```
-
-Detay: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-
-## Hub (çoklu agent)
-
-```bash
-make run-hub   # hub + yerel agent otomatik kayıt
-open http://localhost:8080/hub.html
-
-# Uzak agent push
-metrics.push.enabled=true metrics.push.ingest-url=http://hub:8080/api/v1/ingest make run
+make run-hub   # http://localhost:8081/hub
 ```
 
 Detay: [`docs/HUB.md`](docs/HUB.md)
 
-## Actuator (ops probe)
+## Docker
 
 ```bash
-metrics.actuator.enabled=true make run
-curl http://localhost:8080/actuator/health/liveness
-```
-
-Varsayılan kapalı. Detay: [`docs/ACTUATOR.md`](docs/ACTUATOR.md)
-
-## Konfigürasyon
-
-`src/main/resources/application.properties`:
-
-```properties
-metrics.collection.interval=60000
-docker.enabled=true
-docker.collection.interval=15000
-logging.file.name=metrics-collector.log
+make docker-up      # compose ile başlat
+make docker-smoke   # build + API probe
 ```
 
 ## Lisans
 
-TBD
+MIT — bkz. [`LICENSE`](LICENSE) (varsa).

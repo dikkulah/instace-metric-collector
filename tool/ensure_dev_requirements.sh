@@ -13,28 +13,30 @@ log_ok() { echo "  ✓ $*"; }
 log_warn() { echo "  ! $*"; warnings=$((warnings + 1)); }
 log_fail() { echo "  ✗ $*" >&2; errors=$((errors + 1)); }
 
-ensure_java() {
-  echo "Java"
-  if ! command -v java >/dev/null; then
-    log_fail "java not in PATH — install JDK 21"
+ensure_go() {
+  echo "Go"
+  if ! command -v go >/dev/null; then
+    log_fail "go not in PATH — install Go 1.22+"
     return
   fi
   local version
-  version="$(java -version 2>&1 | head -1 || true)"
-  if echo "$version" | grep -qE 'version "21'; then
+  version="$(go version 2>&1 || true)"
+  if echo "$version" | grep -qE 'go1\.(22|23|24)'; then
     log_ok "$version"
   else
-    log_warn "JDK 21 recommended — found: $version"
+    log_warn "Go 1.22+ recommended — found: $version"
   fi
 }
 
-ensure_maven_wrapper() {
-  echo "Maven wrapper"
-  if [[ ! -x "$ROOT/mvnw" ]]; then
-    log_fail "mvnw not found or not executable"
+ensure_node() {
+  echo "Node.js (for UI build)"
+  if ! command -v node >/dev/null; then
+    log_fail "node not in PATH — install Node 22+"
     return
   fi
-  log_ok "mvnw present"
+  local version
+  version="$(node --version 2>&1 || true)"
+  log_ok "$version"
 }
 
 ensure_docker_optional() {
@@ -42,13 +44,13 @@ ensure_docker_optional() {
   if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
     log_ok "docker daemon reachable"
   else
-    log_warn "docker not available — smoke runs with docker.enabled=false"
+    log_warn "docker not available — smoke runs with DOCKER_ENABLED=false"
   fi
 }
 
 echo "Checking dev requirements for instance-metric-collector"
-ensure_java
-ensure_maven_wrapper
+ensure_go
+ensure_node
 ensure_docker_optional
 
 if [[ "$errors" -gt 0 ]]; then
