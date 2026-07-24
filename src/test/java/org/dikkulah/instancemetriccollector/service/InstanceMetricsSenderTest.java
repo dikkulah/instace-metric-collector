@@ -110,6 +110,9 @@ class InstanceMetricsSenderTest {
                 restTemplate,
                 metricsCollector,
                 objectMapper,
+                null,
+                null,
+                null,
                 null
         );
 
