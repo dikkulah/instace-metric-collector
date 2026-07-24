@@ -1,0 +1,22 @@
+# instance-metric-collector — single-service deploy (MVP-1)
+# Dashboard: http://localhost:8080
+services:
+  metrics-collector:
+    build: .
+    image: instance-metric-collector:local
+    ports:
+      - "${METRICS_PORT:-8080}:8080"
+    volumes:
+      # Host Docker socket — monitor containers on the Docker host
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
+    environment:
+      SERVER_PORT: "8080"
+      METRICS_COLLECTION_INTERVAL: "${METRICS_COLLECTION_INTERVAL:-60000}"
+      METRICS_UI_ENABLED: "${METRICS_UI_ENABLED:-true}"
+      METRICS_ACTUATOR_ENABLED: "${METRICS_ACTUATOR_ENABLED:-false}"
+      DOCKER_ENABLED: "${DOCKER_ENABLED:-true}"
+      DOCKER_HOST: "unix:///var/run/docker.sock"
+      LOGGING_FILE_NAME: "/tmp/metrics-collector.log"
+    # Root required for Docker socket access on most hosts; see docs/DEPLOYMENT.md
+    user: "0:0"
+    restart: unless-stopped

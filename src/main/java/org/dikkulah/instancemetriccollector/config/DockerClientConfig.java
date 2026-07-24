@@ -12,6 +12,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 
 @Configuration
@@ -21,10 +23,13 @@ public class DockerClientConfig {
     private static final Log log = LogFactory.getLog(DockerClientConfig.class);
 
     @Bean
-    public DockerClient dockerClient(@Value("${docker.host}") String dockerHost) {
+    public DockerClient dockerClient(@Value("${docker.host:}") String dockerHost) {
         try {
+            String resolvedHost = resolveDockerHost(dockerHost);
+            log.info("Using Docker host: " + resolvedHost);
+
             DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                    .withDockerHost(dockerHost)
+                    .withDockerHost(resolvedHost)
                     .build();
 
             DockerHttpClient httpClient = new ZerodepDockerHttpClient.Builder()
@@ -38,5 +43,23 @@ public class DockerClientConfig {
             log.warn("Docker client could not be initialized: " + e.getMessage());
             return null;
         }
+    }
+
+    static String resolveDockerHost(String configuredHost) {
+        if (configuredHost != null && !configuredHost.isBlank()) {
+            return configuredHost;
+        }
+
+        String envHost = System.getenv("DOCKER_HOST");
+        if (envHost != null && !envHost.isBlank()) {
+            return envHost;
+        }
+
+        Path desktopSock = Path.of(System.getProperty("user.home"), ".docker", "run", "docker.sock");
+        if (Files.exists(desktopSock)) {
+            return "unix://" + desktopSock;
+        }
+
+        return "unix:///var/run/docker.sock";
     }
 }
