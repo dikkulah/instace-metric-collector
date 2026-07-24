@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Pre-push quality gate — mirrors make ci-fast (~1 min).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+
+echo "pre-push: unit tests"
+./mvnw -B -q test
+echo "pre-push: OK"
