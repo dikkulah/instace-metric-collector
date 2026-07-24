@@ -1,9 +1,9 @@
 ---
 name: test-ci
 description: >-
-  Unit tests, Makefile, tool/ scripts, GitHub workflows, local CI. Use when
+  Go unit tests, Makefile, tool/ scripts, GitHub workflows, local CI. Use when
   adding/fixing tests, CI, smoke scripts, or pre-push hooks. Has git + full
-  terminal (make ci-fast, make ci-smoke, mvn test).
+  terminal (make ci-fast, make ci-smoke).
 model: inherit
 readonly: false
 is_background: false
@@ -13,9 +13,9 @@ You own test and CI infrastructure for this repo.
 
 ## Scope
 
-- `src/test/**`
-- `Makefile`, `tool/**`, `scripts/**`
-- `.github/workflows/**`
+- `go/**/*_test.go`
+- `Makefile`, `go/Makefile`, `tool/**`, `scripts/**`
+- `.github/workflows/**`, `.github/dependabot.yml`
 - `docs/LOCAL_CI.md`, `docs/TESTING.md`, `docs/CI_LESSONS.md`
 
 ## Rules
@@ -32,4 +32,4 @@ You own test and CI infrastructure for this repo.
 
 ## Terminal
 
-Full shell access for git, maven, make, and docker smoke targets. Do not commit unless the user asks.
+Full shell access for git, make, go test, and docker smoke targets. Do not commit unless the user asks.

@@ -2,102 +2,86 @@
 
 ## Overview
 
-`instance-metric-collector` is a single-process Spring Boot background agent. It collects host metrics on a schedule and writes a JSON `MetricsPayload` to the log file. Phase 3 will add an optional embedded dashboard (REST/SSE + static HTML); today there is no metrics API or UI.
+`instance-metric-collector` is a single-process Go agent (or hub) that collects host metrics on a schedule, writes JSON `MetricsPayload` lines to a log file, and optionally serves a React dashboard via REST/SSE.
 
-## Package map
+## Layout
 
 ```
-org.dikkulah.instancemetriccollector/
-├── InstanceMetricCollectorApplication.java   # @EnableScheduling
-├── config/                                   # Spring beans, OS conditions, Docker client
-├── model/                                    # Records: MetricsPayload, ProcessInfo, ...
-└── service/
-    ├── InstanceMetricsSender.java            # Scheduled orchestration
-    └── collector/
-        ├── MetricsCollector.java             # Strategy interface
-        ├── AbstractMetricsCollector.java     # JMX common metrics
-        ├── linux/, mac/, windows/              # OS-specific implementations
-        └── docker/                           # Optional container collector
-
-# Phase 3 (planned) — web/
-    ├── MetricsSnapshotStore.java             # In-memory latest + history
-    ├── MetricsController.java                # REST + SSE
-    └── resources/static/                     # Dashboard HTML/CSS/JS
+go/
+├── cmd/agent/          # per-host collector + optional UI
+├── cmd/hub/            # central hub (agent registry + ingest)
+└── internal/
+    ├── config/         # env-based settings (Spring Boot parity)
+    ├── runtime/        # scheduler loop, lifecycle
+    ├── collector/      # OS-specific metrics (GOOS build tags)
+    ├── docker/         # optional container collector + cache
+    ├── payload/        # MetricsPayload contract
+    ├── store/          # in-memory snapshot ring
+    ├── web/            # REST + SSE + container proxy
+    ├── webui/          # embedded React SPA (build output in dist/)
+    ├── logoutput/      # JSON log file writer
+    └── hub/            # agent registry (hub mode)
 ```
+
+Frontend source: `go/web/frontend/` (Vite + React + TypeScript).
 
 ## Patterns
 
-### Strategy + Template Method
+### OS collectors (V1)
 
-- `MetricsCollector` defines the contract for all platforms.
-- `AbstractMetricsCollector` provides JMX-based CPU/memory via `OperatingSystemMXBean`.
-- Each OS package implements process/service collection with platform shell commands.
+Platform logic lives under `internal/collector/` with `//go:build` tags (`darwin`, `linux`, `windows`). The scheduler never shells out directly.
 
-### Conditional primary bean
+### Docker cache (optional, V4)
 
-`MetricsCollectorConfig` marks the OS-matching collector as `@Primary` using `OperatingSystemCondition`.
+`internal/docker` refreshes container metadata on its own ticker and exposes `Cached()` to the main loop. `DOCKER_ENABLED=false` skips Docker client setup.
 
-### Docker cache (optional)
+### Snapshot store (V16)
 
-`DockerContainerCollector` runs on its own schedule and maintains an in-memory cache. `InstanceMetricsSender` reads the cache so the main loop is never blocked by Docker API calls.
-
-`@ConditionalOnProperty(name = "docker.enabled")` — when false, no Docker beans are created and the app starts normally.
+`internal/store` holds the latest metrics for REST/SSE. UI never parses log files.
 
 ## Scheduling flow
 
 ```
-@Scheduled (metrics.collection.interval)
-    InstanceMetricsSender.sendMetrics()
-        → MetricsCollector (CPU, memory, processes, services)
-        → DockerContainerCollector.getCachedContainers() [optional]
-        → MetricsPayload
-        → ObjectMapper.writeValueAsString → log.info
-
-@Scheduled (docker.collection.interval)  [if docker.enabled]
-    DockerContainerCollector.collectContainers()
-        → Docker API → update cache
+runtime.Run (ticker: METRICS_COLLECTION_INTERVAL)
+    → collector.Collect()        # CPU, memory, processes, services, disk, network
+    → docker.Cached()            # optional containers
+    → store.Push(snapshot)       # if UI enabled
+    → logoutput.Write(payload)   # JSON line to LOGGING_FILE_NAME
 ```
 
 ## Output contract
 
-`MetricsPayload` record fields:
+`MetricsPayload` fields (see `go/internal/payload/types.go`):
 
 | Field | Type | Source |
 |-------|------|--------|
-| `cpuLoad` | double | JMX |
-| `usedMemory` | long | totalMemory - freeMemory |
-| `totalMemory` | long | JMX |
-| `processInfos` | List | OS shell (`ps`, `tasklist`, …) |
-| `serviceInfos` | List | OS shell (`systemctl`, `launchctl`, `sc`) |
-| `containers` | List | Docker cache (empty if disabled) |
+| `cpuLoad` | float64 | gopsutil |
+| `usedMemory` | int64 | gopsutil |
+| `totalMemory` | int64 | gopsutil |
+| `processInfos` | array | gopsutil + OS services |
+| `serviceInfos` | array | launchctl / systemctl |
+| `containers` | array | Docker cache |
+| `diskUsage` | array | gopsutil |
+| `networkUsage` | array | gopsutil |
 
-JSON log output is the external contract (V6, V7). Breaking changes require an ADR and version bump.
+JSON log output and REST payload share the same schema (V6, V7). Breaking changes require an ADR.
 
 ## Configuration
 
-All intervals and feature flags are in `application.properties`:
+Environment variables (see `internal/config/config.go`):
 
-- `metrics.collection.interval` — main loop (default 60000 ms)
-- `docker.enabled` — enable/disable Docker beans
-- `docker.collection.interval` — Docker cache refresh (default 15000 ms)
-- `docker.host` — optional; auto-detects common socket paths
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SERVER_PORT` | `8080` | HTTP listen port |
+| `METRICS_COLLECTION_INTERVAL` | `60000` (ms) | Main loop interval |
+| `METRICS_UI_ENABLED` | `true` | REST/SSE + embedded SPA |
+| `DOCKER_ENABLED` | `true` | Container collector |
+| `DOCKER_COLLECTION_INTERVAL` | `15000` (ms) | Docker refresh interval |
+| `LOGGING_FILE_NAME` | `metrics-collector.log` | JSON payload log file |
+| `METRICS_HUB_ENABLED` | `false` | Use `cmd/hub` instead of agent |
 
-## Extension points (phase-gated)
+## Hub mode
 
-| Feature | Phase | Status |
-|---------|-------|--------|
-| JSON log output | 1 | Done |
-| HTTP push to `metrics.api.endpoint` | 2 | Prepared (`RestTemplate` injected, not wired) |
-| Metrics dashboard UI (REST/SSE + static) | 3 | Planned — [`UI_PLAN.md`](UI_PLAN.md) |
-| Actuator health endpoints | 4 | Dependency present, not exposed |
-| Dockerfile / deployment | 5 | Planned |
-| Disk/network in payload | 6 | Interface exists on macOS only |
+`cmd/hub` exposes ingest (`POST /api/v1/ingest`) and agent listing. Agents push snapshots when `metrics.push.*` is wired (G5 backlog).
 
-See [`PHASE_GATES.md`](PHASE_GATES.md).
-
-## Testing
-
-- **Unit tests**: Mockito for `InstanceMetricsSender`, Docker collector mapping
-- **Smoke test**: `tool/smoke_local.sh` — package JAR, run ~12s, assert JSON fields in log
-
-See [`TESTING.md`](TESTING.md).
+See [`docs/HUB.md`](HUB.md) and [ADR-006](DECISIONS/ADR-006-hub-topology.md).

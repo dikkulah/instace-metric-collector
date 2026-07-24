@@ -1,6 +1,6 @@
 ---
 description: Docker collector — optional feature, cache pattern
-globs: src/main/java/**/docker/**,src/main/java/**/config/DockerClientConfig.java
+globs: go/internal/docker/**
 alwaysApply: false
 ---
 
@@ -8,15 +8,15 @@ alwaysApply: false
 
 ## V4 — Optional Docker
 
-- `docker.enabled=false` must allow full application startup with no `DockerClient` bean.
-- Use `@ConditionalOnProperty` and `@Autowired(required = false)` for optional injection.
-- Tests use `docker.enabled=false` in test `application.properties`.
+- `DOCKER_ENABLED=false` must allow full application startup with no Docker client.
+- `internal/runtime` uses `docker.NoopSource` when disabled.
+- Tests run with `DOCKER_ENABLED=false` when Docker is unavailable.
 
 ## V5 — Non-blocking collection
 
-- `DockerContainerCollector` maintains a cache updated on its own `@Scheduled` interval.
-- `InstanceMetricsSender` reads `getCachedContainers()` — never calls Docker API synchronously in the main metrics loop.
+- `internal/docker` maintains a cache updated on its own ticker.
+- The main metrics loop reads `Cached()` — never calls Docker API synchronously in the collection tick.
 
 ## Docker host resolution
 
-Follow existing `DockerClientConfig.resolveDockerHost()` order: property → `DOCKER_HOST` env → common socket paths.
+Follow moby client defaults: `DOCKER_HOST` env, then common socket paths (`/var/run/docker.sock`, `~/.docker/run/docker.sock` on macOS).

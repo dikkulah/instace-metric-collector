@@ -1,6 +1,6 @@
 # instance-metric-collector — developer shortcuts. Run `make help` first.
 SHELL := /bin/bash
-.PHONY: help setup setup-hooks onboard run run-hub test check ci ci-fast ci-smoke doctor docker-build docker-up docker-down docker-smoke ui-install ui-build build
+.PHONY: help setup setup-hooks onboard run run-hub test check ci ci-fast ci-smoke doctor docker-build docker-up docker-down docker-smoke ui-install ui-build build clean
 
 help:
 	@echo "instance-metric-collector — common targets"
@@ -23,6 +23,7 @@ help:
 	@echo "  make ui-install   npm ci in go/web/frontend"
 	@echo "  make ui-build     Build React SPA into go/internal/webui/dist"
 	@echo "  make build        Build agent + hub binaries (includes ui-build)"
+	@echo "  make clean        Remove generated bin/, dist/, node_modules/"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make onboard"
@@ -85,3 +86,6 @@ ui-build:
 
 build:
 	$(MAKE) -C go build
+
+clean:
+	$(MAKE) -C go clean

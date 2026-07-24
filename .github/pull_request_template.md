@@ -9,7 +9,7 @@
 - [ ] Council veto check — no V1–V20 violations ([`docs/VETO_REGISTRY.md`](docs/VETO_REGISTRY.md))
 - [ ] UI strings: locale JSON only (`static/locales/`) — no hardcoded labels (V20)
 - [ ] New collector logic has unit tests (V14)
-- [ ] No logs, `target/`, or secrets committed (V15)
+- [ ] No logs, `go/bin/`, `node_modules/`, or secrets committed (V15)
 
 ## Phase gate
 

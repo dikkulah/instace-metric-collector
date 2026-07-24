@@ -4,34 +4,35 @@
 
 | Layer | Command | Location |
 |-------|---------|----------|
-| Unit | `make test` / `./mvnw test` | `src/test/java/` |
-| Context smoke | `@SpringBootTest` | `InstanceMetricCollectorApplicationTests` |
+| Unit | `make test` / `make -C go test` | `go/internal/**` |
 | Integration smoke | `make ci-smoke` | `tool/smoke_local.sh` |
 
 ## Unit tests
 
 Current coverage:
 
-- `InstanceMetricsSenderTest` — payload assembly, optional Docker, memory calculation
-- `DockerContainerCollectorTest` — container mapping, error handling, skip removing
-- `DockerClientConfigTest` — `resolveDockerHost()` helper
-
-Test config: `src/test/resources/application.properties` sets `docker.enabled=false`.
+- `internal/collector` — service status parsing, factory
+- `internal/config` — env defaults
+- `internal/logoutput` — JSON log line writer
+- `internal/payload` — golden fixture round-trip
+- `internal/runtime` — graceful shutdown
+- `internal/web` — REST handlers
 
 ## Smoke test
 
 `tool/smoke_local.sh`:
 
-1. Runs unit tests
-2. Packages JAR
-3. Starts app for ~12 seconds (configurable via `SMOKE_WAIT_SECS`)
-4. Asserts log contains `cpuLoad`, `usedMemory`, `processInfos`, `serviceInfos`, `containers`
+1. Runs `go test ./...`
+2. Builds agent binary (includes UI)
+3. Starts agent for ~12 seconds (`SMOKE_WAIT_SECS`)
+4. Asserts REST `/api/metrics/current` payload fields
+5. Asserts `LOGGING_FILE_NAME` contains `cpuLoad`, `usedMemory`, `processInfos`
 
-Docker is enabled in smoke only if daemon is reachable; otherwise runs host-only (see [`CI_LESSONS.md`](CI_LESSONS.md) Lesson 1).
+Docker is enabled in smoke only if daemon is reachable; otherwise runs host-only (see [`CI_LESSONS.md`](CI_LESSONS.md)).
 
 ## Adding tests (V14)
 
-New collector logic must include unit tests. Prefer Mockito for shell/OS dependencies; avoid requiring real Docker in unit tests.
+New collector logic must include unit tests. Prefer table-driven tests with fixtures; avoid requiring real Docker in unit tests.
 
 ## CI mapping
 
@@ -39,3 +40,9 @@ New collector logic must include unit tests. Prefer Mockito for shell/OS depende
 |-------|-------|----------------|
 | Unit tests | `make ci-fast`, pre-push | `ci.yml` |
 | Smoke | `make ci-smoke` | Not run (local only) |
+
+## Clean generated artifacts
+
+```bash
+make clean
+```

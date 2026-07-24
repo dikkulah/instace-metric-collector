@@ -10,7 +10,7 @@ build: ui-sync-dist
 	$(GO) build -o $(BIN_DIR)/agent ./cmd/agent
 	$(GO) build -o $(BIN_DIR)/hub ./cmd/hub
 
-test:
+test: ui-sync-dist
 	$(GO) test ./...
 
 ui-install:
@@ -19,7 +19,7 @@ ui-install:
 ui-build:
 	cd $(FRONTEND_DIR) && npm run build
 
-ui-sync-dist: ui-build
+ui-sync-dist: ui-install ui-build
 	rm -rf $(WEBUI_DIST)
 	mkdir -p $(WEBUI_DIST)
 	cp -R $(FRONTEND_DIR)/dist/. $(WEBUI_DIST)/

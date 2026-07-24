@@ -9,16 +9,16 @@ Delegate to project subagents in `.cursor/agents/` when work is clearly in one d
 
 | Path / topic | Subagent | Auto rules (globs) |
 |--------------|----------|-------------------|
-| `src/main/java/**/service/collector/**`, `model/**`, collectors | `collector-backend` | `metrics-collector-architecture`, `docker`, `payload` |
-| `src/main/resources/static/**`, `src/main/java/**/web/**` | `dashboard-ui` | `metrics-collector-ui` |
-| `src/main/java/**/hub/**`, `hub.html`, push/ingest | `hub-platform` | — |
-| `src/test/**`, `Makefile`, `tool/**`, `.github/**` | `test-ci` | — |
+| `go/internal/collector/**`, `payload/`, `runtime/` | `collector-backend` | `metrics-collector-architecture`, `docker`, `payload` |
+| `go/web/frontend/**`, `go/internal/web/**`, `webui/` | `dashboard-ui` | `metrics-collector-ui` |
+| `go/internal/hub/**`, hub routes, push/ingest | `hub-platform` | — |
+| `go/**/*_test.go`, `Makefile`, `tool/**`, `.github/**` | `test-ci` | — |
 | Pre-merge / "doğrula" / verify | `verifier` | readonly |
 
 ## How to assign work
 
 - **Automatic**: Open or @-mention files in a folder — scoped `.mdc` rules attach via `globs`.
-- **Explicit**: In chat: *"Use collector-backend for MacNetworkUsageParser"* or *"@collector-backend fix parser"*.
+- **Explicit**: In chat: *"Use collector-backend for launchctl parser"* or *"@dashboard-ui fix SSE"*.
 - **Parallel**: Independent domains (e.g. UI + hub test) → launch two subagents in parallel.
 
 ## Do not
