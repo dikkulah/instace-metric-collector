@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -13,15 +14,18 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
 )
 
+var errSendExhausted = errors.New("push retries exhausted")
+
 // Options configures the agent-to-hub push client (METRICS_PUSH_* env).
 type Options struct {
-	IngestURL  string
-	AgentID    string
-	Hostname   string
-	AuthToken  string
-	Timeout    time.Duration
-	MaxRetries int
-	QueueSize  int
+	IngestURL      string
+	AgentID        string
+	Hostname       string
+	AuthToken      string
+	Timeout        time.Duration
+	MaxRetries     int
+	QueueSize      int
+	HubRetryTick   time.Duration
 }
 
 // envelope mirrors the hub ingestBody contract (web.handleIngest).
@@ -32,14 +36,16 @@ type envelope struct {
 }
 
 // Client pushes snapshots to the hub without ever blocking the scheduler (V11).
+// Snapshots land in an in-memory queue first; disk spool is overflow only.
 type Client struct {
 	opts   Options
 	http   *http.Client
 	queue  chan payload.Snapshot
+	spool  *Spool
 	logger *slog.Logger
 }
 
-func NewClient(opts Options, logger *slog.Logger) *Client {
+func NewClient(opts Options, spool *Spool, logger *slog.Logger) *Client {
 	if opts.Timeout <= 0 {
 		opts.Timeout = 5 * time.Second
 	}
@@ -49,16 +55,20 @@ func NewClient(opts Options, logger *slog.Logger) *Client {
 	if opts.QueueSize <= 0 {
 		opts.QueueSize = 32
 	}
+	if opts.HubRetryTick <= 0 {
+		opts.HubRetryTick = 15 * time.Second
+	}
 	return &Client{
 		opts:   opts,
 		http:   &http.Client{Timeout: opts.Timeout},
 		queue:  make(chan payload.Snapshot, opts.QueueSize),
+		spool:  spool,
 		logger: logger,
 	}
 }
 
-// Enqueue hands a snapshot to the push worker. When the queue is full the
-// oldest snapshot is dropped: fresh metrics beat stale retries.
+// Enqueue adds a snapshot to the in-memory push queue. Disk spool is used only
+// when the queue is full (overflow), never when the hub is temporarily down.
 func (c *Client) Enqueue(snap payload.Snapshot) {
 	for {
 		select {
@@ -67,7 +77,10 @@ func (c *Client) Enqueue(snap payload.Snapshot) {
 		default:
 			select {
 			case dropped := <-c.queue:
-				c.logger.Warn("push queue full, dropping oldest", "collectedAt", dropped.CollectedAt)
+				if c.logger != nil {
+					c.logger.Warn("push queue full, spooling oldest", "collectedAt", dropped.CollectedAt)
+				}
+				c.spillToSpool(dropped)
 			default:
 			}
 		}
@@ -76,37 +89,127 @@ func (c *Client) Enqueue(snap payload.Snapshot) {
 
 // Run drains the queue until ctx is cancelled. Start as a goroutine.
 func (c *Client) Run(ctx context.Context) {
+	c.drainSpoolUntilBlocked(ctx)
+
+	retryTick := time.NewTicker(c.opts.HubRetryTick)
+	defer retryTick.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-retryTick.C:
+			c.drainSpoolUntilBlocked(ctx)
 		case snap := <-c.queue:
-			c.sendWithRetry(ctx, snap)
+			c.drainSpoolUntilBlocked(ctx)
+			c.flushUntilSent(ctx, snap)
 		}
 	}
 }
 
-func (c *Client) sendWithRetry(ctx context.Context, snap payload.Snapshot) {
+// drainSpoolUntilBlocked delivers overflow snapshots once the hub is reachable.
+func (c *Client) drainSpoolUntilBlocked(ctx context.Context) {
+	if c.spool == nil {
+		return
+	}
+	for {
+		id, env, ok, err := c.spool.Peek()
+		if err != nil {
+			if c.logger != nil {
+				c.logger.Warn("spool peek failed", "err", err)
+			}
+			return
+		}
+		if !ok {
+			return
+		}
+		if err := c.sendBatch(ctx, env.Snapshot); err != nil {
+			return
+		}
+		if err := c.spool.Delete(id); err != nil && c.logger != nil {
+			c.logger.Warn("spool delete failed", "id", id, "err", err)
+		} else if c.logger != nil {
+			c.logger.Info("spooled snapshot delivered", "id", id, "collectedAt", env.Snapshot.CollectedAt)
+		}
+	}
+}
+
+// flushUntilSent keeps retrying a queued snapshot until the hub accepts it.
+// The item stays in the worker (memory queue path), not on disk.
+func (c *Client) flushUntilSent(ctx context.Context, snap payload.Snapshot) {
+	for {
+		err := c.sendBatch(ctx, snap)
+		if err == nil {
+			return
+		}
+		var permanent *permanentError
+		if asPermanentError(err, &permanent) {
+			if c.logger != nil {
+				c.logger.Error("push rejected, dropping queued snapshot", "status", permanent.status, "collectedAt", snap.CollectedAt)
+			}
+			return
+		}
+		if c.logger != nil {
+			c.logger.Warn("hub unreachable, retrying queued snapshot", "collectedAt", snap.CollectedAt, "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(c.opts.HubRetryTick):
+		}
+	}
+}
+
+func (c *Client) spillToSpool(snap payload.Snapshot) {
+	if c.spool == nil {
+		if c.logger != nil {
+			c.logger.Warn("push queue overflow, spool disabled — snapshot dropped", "collectedAt", snap.CollectedAt)
+		}
+		return
+	}
+	env := envelope{
+		AgentID:  c.opts.AgentID,
+		Hostname: c.opts.Hostname,
+		Snapshot: snap,
+	}
+	if err := c.spool.Put(env); err != nil {
+		if c.logger != nil {
+			c.logger.Warn("spool put failed", "collectedAt", snap.CollectedAt, "err", err)
+		}
+		return
+	}
+	if c.logger != nil {
+		c.logger.Info("queue overflow spooled", "collectedAt", snap.CollectedAt)
+	}
+}
+
+func (c *Client) sendBatch(ctx context.Context, snap payload.Snapshot) error {
+	var lastErr error
 	for attempt := 0; attempt < c.opts.MaxRetries; attempt++ {
 		if attempt > 0 {
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			case <-time.After(backoff(attempt)):
 			}
 		}
 		err := c.send(ctx, snap)
 		if err == nil {
-			return
+			return nil
 		}
+		lastErr = err
 		var permanent *permanentError
-		if ok := asPermanentError(err, &permanent); ok {
-			c.logger.Error("push rejected, not retrying", "status", permanent.status)
-			return
+		if asPermanentError(err, &permanent) {
+			return err
 		}
-		c.logger.Warn("push failed", "attempt", attempt+1, "max", c.opts.MaxRetries, "err", err)
+		if c.logger != nil {
+			c.logger.Warn("push failed", "agentId", c.opts.AgentID, "attempt", attempt+1, "max", c.opts.MaxRetries, "err", err)
+		}
 	}
-	c.logger.Warn("push abandoned after retries", "collectedAt", snap.CollectedAt)
+	if lastErr == nil {
+		lastErr = errSendExhausted
+	}
+	return lastErr
 }
 
 func (c *Client) send(ctx context.Context, snap payload.Snapshot) error {

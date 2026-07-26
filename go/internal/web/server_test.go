@@ -218,6 +218,42 @@ func TestHandleAlertAck(t *testing.T) {
 	}
 }
 
+func TestHandleAlertSilence(t *testing.T) {
+	silences := alert.LoadSilenceStore(nil)
+	deps := testDeps(appmode.Hub, config.Config{}, nil, nil, nil)
+	deps.AlertSilences = silences
+	srv := NewServer(deps)
+
+	body, _ := json.Marshal(map[string]any{
+		"agentId":         "a1",
+		"ruleId":          alert.AlertTypeCPUHigh,
+		"durationMinutes": 60,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/alerts/silence", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("silence status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !silences.IsSilenced("a1", alert.AlertTypeCPUHigh) {
+		t.Fatal("expected active silence")
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/alerts/silences", nil)
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status = %d", rec.Code)
+	}
+	var listed []alert.SilenceEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("listed = %+v", listed)
+	}
+}
+
 type recordingNotifier struct {
 	events []alert.Event
 }

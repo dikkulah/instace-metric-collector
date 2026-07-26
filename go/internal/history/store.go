@@ -94,7 +94,9 @@ func Open(path string, profile string, retentionDays int) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
-	return &Store{db: db, retentionDays: retentionDays, profile: profile}, nil
+	store := &Store{db: db, retentionDays: retentionDays, profile: profile}
+	_ = store.BackfillAgentCatalog()
+	return store, nil
 }
 
 func (s *Store) Close() error {

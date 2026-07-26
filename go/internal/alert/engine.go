@@ -23,6 +23,7 @@ type Engine struct {
 	rules    []Rule
 	notifier Notifier
 	cfg      *ConfigStore
+	silences *SilenceStore
 	logger   *slog.Logger
 	stats    StatsRecorder
 	maxRetry int
@@ -52,6 +53,13 @@ func NewEngine(rules []Rule, notifier Notifier, cfg *ConfigStore, logger *slog.L
 func (e *Engine) SetStats(s StatsRecorder) {
 	if e != nil {
 		e.stats = s
+	}
+}
+
+// SetSilences wires the hub silence store (optional).
+func (e *Engine) SetSilences(s *SilenceStore) {
+	if e != nil {
+		e.silences = s
 	}
 }
 
@@ -139,6 +147,13 @@ func (e *Engine) enqueue(ev Event) {
 }
 
 func (e *Engine) deliver(ev Event) {
+	if e.silences != nil && e.silences.IsSilenced(ev.AgentID, ev.AlertType) {
+		if e.logger != nil {
+			e.logger.Debug("alert silenced", "agentId", ev.AgentID, "type", ev.AlertType)
+		}
+		return
+	}
+	ev = WithNotifyDefaults(ev)
 	key := ev.AgentID + "|" + ev.AlertType
 	now := time.Now().UTC()
 	cooldown := 10 * time.Minute

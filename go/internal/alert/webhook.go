@@ -31,7 +31,7 @@ func (w *WebhookNotifier) Notify(ctx context.Context, ev Event) error {
 	if w == nil || w.URL == "" {
 		return nil
 	}
-	body, err := json.Marshal(ev)
+	body, err := json.Marshal(WithNotifyDefaults(ev))
 	if err != nil {
 		return fmt.Errorf("marshal alert: %w", err)
 	}

@@ -25,12 +25,16 @@ type Config struct {
 	MetricsPushAuthToken  string
 	MetricsPushTimeout    time.Duration
 	MetricsPushMaxRetries int
+	MetricsPushSpoolPath  string
+	MetricsPushSpoolMax   int
 
 	// Hub ingest auth
 	HubIngestToken string
+	HubOfflineAfter time.Duration
 
 	// Hub alerts (G5) — metrics.alerts.* parity
 	AlertsWebhookURL      string
+	AlertsSlackWebhookURL string
 	AlertsCPUThreshold    float64
 	AlertsMemoryThreshold float64
 	AlertsDiskThreshold   float64
@@ -62,10 +66,14 @@ func Load() Config {
 		MetricsPushAuthToken:  envString("METRICS_PUSH_AUTH_TOKEN", ""),
 		MetricsPushTimeout:    envDuration("METRICS_PUSH_TIMEOUT", 5*time.Second),
 		MetricsPushMaxRetries: envInt("METRICS_PUSH_MAX_RETRIES", 3),
+		MetricsPushSpoolPath:  envString("METRICS_PUSH_SPOOL_PATH", "push-spool.db"),
+		MetricsPushSpoolMax:   envInt("METRICS_PUSH_SPOOL_MAX", 2880),
 
 		HubIngestToken: envString("METRICS_HUB_INGEST_TOKEN", ""),
+		HubOfflineAfter: envDuration("METRICS_HUB_OFFLINE_AFTER", 24*time.Hour),
 
 		AlertsWebhookURL:      envString("METRICS_ALERTS_WEBHOOK_URL", ""),
+		AlertsSlackWebhookURL: envString("METRICS_ALERTS_SLACK_WEBHOOK_URL", ""),
 		AlertsCPUThreshold:    envFloat("METRICS_ALERTS_CPU_THRESHOLD", 90),
 		AlertsMemoryThreshold: envFloat("METRICS_ALERTS_MEMORY_THRESHOLD", 0.90),
 		AlertsDiskThreshold:   envFloat("METRICS_ALERTS_DISK_THRESHOLD", 90),

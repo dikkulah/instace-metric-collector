@@ -73,8 +73,48 @@ func TestQuerySamplesWithResolutionInvalid(t *testing.T) {
 	}
 	defer store.Close()
 
-	_, err = store.QuerySamplesWithResolution("a", "", "", "daily", 10)
+	_, err = store.QuerySamplesWithResolution("a", "", "", "weekly", 10)
 	if err == nil {
 		t.Fatal("expected error for unsupported resolution")
+	}
+}
+
+func TestRunDailyRollup(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "daily.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	base := time.Now().UTC().Add(-20 * time.Hour).Truncate(time.Hour)
+	for i := 0; i < 3; i++ {
+		ts := base.Add(time.Duration(i) * time.Hour).Format(time.RFC3339Nano)
+		snap := payload.Snapshot{
+			CollectedAt: ts,
+			Payload: payload.MetricsPayload{
+				CPULoad:     float64(30 + i*5),
+				UsedMemory:  100,
+				TotalMemory: 200,
+			},
+		}
+		if err := store.WriteSample("agent-1", snap); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := store.RunHourlyRollup(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RunDailyRollup(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	daily, err := store.QuerySamplesWithResolution("agent-1", "", "", "daily", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(daily) < 1 {
+		t.Fatalf("daily rows = %d, want >= 1", len(daily))
 	}
 }

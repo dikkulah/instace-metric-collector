@@ -12,7 +12,9 @@ import (
 type AgentSummary struct {
 	AgentID        string  `json:"agentId"`
 	Hostname       string  `json:"hostname"`
+	FirstSeen      string  `json:"firstSeen,omitempty"`
 	LastSeen       string  `json:"lastSeen"`
+	Status         string  `json:"status,omitempty"`
 	CPULoad        float64 `json:"cpuLoad"`
 	UsedMemory     int64   `json:"usedMemory"`
 	TotalMemory    int64   `json:"totalMemory"`
@@ -63,6 +65,24 @@ func (r *Registry) ListAgents() []AgentSummary {
 		out = append(out, e.summary)
 	}
 	return out
+}
+
+// Hydrate seeds the registry from persisted catalog rows (hub restart).
+func (r *Registry) Hydrate(summaries []AgentSummary) {
+	if r == nil || len(summaries) == 0 {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, s := range summaries {
+		if _, ok := r.agents[s.AgentID]; ok {
+			continue
+		}
+		r.agents[s.AgentID] = &agentEntry{
+			store:   store.NewSnapshotStore(120),
+			summary: s,
+		}
+	}
 }
 
 func (r *Registry) Latest(agentID string) (payload.Snapshot, bool) {
