@@ -32,6 +32,7 @@ Read `.cursor/rules/metrics-collector-ui.mdc` and `docs/UI_PLAN.md`.
 1. Prefer SSE + poll fallback via `useMetrics` hooks; keep pages consistent.
 2. Run `./tool/check_i18n_coverage.sh` after locale key changes.
 3. Verify: `make ci-fast` and manual check at `http://localhost:8080/`.
+4. After layout/split/scroll changes: follow `.cursor/skills/ui-visual-review/SKILL.md`; run `make ui-visual-serve` + `make ui-visual-routes` or `make ui-e2e`.
 
 ## Terminal
 
