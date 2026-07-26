@@ -2,13 +2,19 @@
 metrics-collector.log*
 smoke-*.log
 logs/
+metrics-history.db
 
 # Build artifacts
 target/
 go/bin/
+go/tmp/
+go/dist/
 go/internal/webui/dist/
 go/web/frontend/dist/
 go/web/frontend/node_modules/
+go/web/frontend/playwright-report/
+go/web/frontend/test-results/
+go/web/frontend/blob-report/
 
 # OS / IDE
 *.DS_Store
