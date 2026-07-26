@@ -14,3 +14,9 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) throw new Error(`${path}: ${res.status}`)
   return res.json() as Promise<T>
 }
+
+export async function apiPost<T>(path: string): Promise<T> {
+  const res = await fetch(path, { method: 'POST' })
+  if (!res.ok) throw new Error(`${path}: ${res.status}`)
+  return res.json() as Promise<T>
+}

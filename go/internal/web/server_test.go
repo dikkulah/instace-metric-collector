@@ -13,6 +13,7 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/appmode"
 	"github.com/dikkulah/instance-metric-collector/go/internal/config"
 	"github.com/dikkulah/instance-metric-collector/go/internal/docker"
+	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
@@ -166,6 +167,54 @@ func TestHandleHubAlertConfig(t *testing.T) {
 	}
 	if alertCfg.Get().CPUPercent != 70 {
 		t.Fatalf("updated cpu = %v", alertCfg.Get().CPUPercent)
+	}
+}
+
+func TestHandleAlertAck(t *testing.T) {
+	dir := t.TempDir()
+	hist, err := history.Open(dir+"/test.db", "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hist.Close()
+
+	ev := alert.Event{
+		AgentID:   "a1",
+		AlertType: alert.AlertTypeCPUHigh,
+		Severity:  alert.SeverityWarning,
+	}
+	if err := hist.SaveAlertEvent(ev, history.AlertStatusOpen); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := hist.ListAlerts("", 10)
+	if err != nil || len(alerts) != 1 {
+		t.Fatalf("alerts = %+v err=%v", alerts, err)
+	}
+	alertID := alerts[0].ID
+
+	deps := testDeps(appmode.Hub, config.Config{}, nil, nil, nil)
+	deps.History = hist
+	srv := NewServer(deps)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/alerts/"+alertID+"/ack", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ack status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var updated history.AlertRecord
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != history.AlertStatusAck {
+		t.Fatalf("status = %q", updated.Status)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/alerts/"+alertID+"/ack", nil)
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("second ack status = %d", rec.Code)
 	}
 }
 

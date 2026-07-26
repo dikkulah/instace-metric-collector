@@ -1,10 +1,35 @@
 import { useTranslation } from 'react-i18next'
 import { useAlerts } from '../../api/useAlerts'
 import { PageShell } from '../../components/layout/PageShell'
+import { StatusPill } from '../../components/StatusPill'
+
+function alertStatusTone(status: string): 'success' | 'warning' | 'neutral' {
+  switch (status) {
+    case 'OPEN':
+      return 'warning'
+    case 'ACK':
+      return 'success'
+    default:
+      return 'neutral'
+  }
+}
+
+function alertStatusLabel(status: string, t: (key: string) => string): string {
+  switch (status) {
+    case 'OPEN':
+      return t('alerts.status.open')
+    case 'ACK':
+      return t('alerts.status.ack')
+    case 'RESOLVED':
+      return t('alerts.status.resolved')
+    default:
+      return status
+  }
+}
 
 export function AlertsPage() {
   const { t } = useTranslation()
-  const alerts = useAlerts()
+  const { alerts, acknowledge, ackingId } = useAlerts()
 
   return (
     <PageShell title={t('nav.alerts')} variant="scroll">
@@ -20,6 +45,7 @@ export function AlertsPage() {
                 <th className="p-3">{t('alerts.severity')}</th>
                 <th className="p-3">{t('alerts.status')}</th>
                 <th className="p-3">{t('alerts.firedAt')}</th>
+                <th className="p-3">{t('alerts.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -28,8 +54,24 @@ export function AlertsPage() {
                   <td className="p-3 mono">{a.agentId}</td>
                   <td className="p-3 mono">{a.ruleId}</td>
                   <td className="p-3">{a.severity}</td>
-                  <td className="p-3">{a.status}</td>
+                  <td className="p-3">
+                    <StatusPill label={alertStatusLabel(a.status, t)} tone={alertStatusTone(a.status)} />
+                  </td>
                   <td className="p-3 text-on-surface-variant">{a.firedAt}</td>
+                  <td className="p-3">
+                    {a.status === 'OPEN' ? (
+                      <button
+                        type="button"
+                        onClick={() => void acknowledge(a.id)}
+                        disabled={ackingId === a.id}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary-container/30 text-primary hover:bg-primary-container/50 disabled:opacity-50"
+                      >
+                        {ackingId === a.id ? t('alerts.acking') : t('alerts.ack')}
+                      </button>
+                    ) : (
+                      <span className="text-on-surface-variant text-xs">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
