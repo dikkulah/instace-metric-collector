@@ -10,8 +10,9 @@ import {
   resolutionForRange,
   sortSamplesAsc,
 } from '../lib/historySeries'
+import { normalizeMetricsSnapshot } from '../lib/normalizeMetrics'
 
-export function useHistorySamples(timeRange: HistoryTimeRange, enabled: boolean) {
+export function useHistorySamples(timeRange: HistoryTimeRange, enabled: boolean, sampleLimit: number) {
   const { agentId } = useParams<{ agentId?: string }>()
   const isHubAgent = useIsHubAgentContext()
   const [samples, setSamples] = useState<MetricsSnapshot[]>([])
@@ -39,18 +40,21 @@ export function useHistorySamples(timeRange: HistoryTimeRange, enabled: boolean)
             from: from.toISOString(),
             to: to.toISOString(),
             resolution: resolutionForRange(timeRange),
-            limit: '500',
+            limit: String(sampleLimit),
           })
           data =
             (await apiGet<MetricsSnapshot[]>(
               `/api/v1/agents/${encodeURIComponent(agentId)}/history?${qs}`,
             )) ?? []
         } else {
-          const raw = (await apiGet<MetricsSnapshot[]>('/api/metrics/history?limit=120')) ?? []
+          const raw =
+            (await apiGet<MetricsSnapshot[]>(
+              `/api/metrics/history?limit=${encodeURIComponent(String(sampleLimit))}`,
+            )) ?? []
           data = filterSamplesByRange(raw, timeRange)
         }
         if (!cancelled) {
-          setSamples(sortSamplesAsc(data))
+          setSamples(sortSamplesAsc(data.map(normalizeMetricsSnapshot)))
         }
       } catch (e) {
         if (!cancelled) {
@@ -68,7 +72,7 @@ export function useHistorySamples(timeRange: HistoryTimeRange, enabled: boolean)
       cancelled = true
       window.clearInterval(id)
     }
-  }, [enabled, timeRange, isHubAgent, agentId])
+  }, [enabled, timeRange, isHubAgent, agentId, sampleLimit])
 
-  return { samples, loading, error }
+  return { samples, loading, error, sampleLimit }
 }

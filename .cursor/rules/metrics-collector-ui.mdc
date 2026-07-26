@@ -6,6 +6,8 @@ alwaysApply: false
 
 # UI rules (V16–V20)
 
+**Backend parity:** If you add or change APIs consumed by the UI, update types, hooks, screens, and i18n in the **same task** — see `backend-ui-parity.mdc`.
+
 ## V16 — Snapshot store, not log parsing
 
 The dashboard reads from `internal/store` via REST/SSE.

@@ -132,6 +132,7 @@ func (s *Store) WriteSample(agentID string, snap payload.Snapshot) error {
 }
 
 // QuerySamples returns snapshots in [from, to] up to limit.
+// With a time range, samples are spread evenly across the window (not only the newest).
 func (s *Store) QuerySamples(agentID, from, to string, limit int) ([]payload.Snapshot, error) {
 	if s == nil {
 		return nil, nil
@@ -139,6 +140,19 @@ func (s *Store) QuerySamples(agentID, from, to string, limit int) ([]payload.Sna
 	if limit <= 0 {
 		limit = 500
 	}
+	if from != "" || to != "" {
+		return s.querySamplesInRangeDownsampled(agentID, from, to, limit)
+	}
+	q := `SELECT collected_at, payload_json FROM raw_samples WHERE agent_id = ?`
+	args := []any{agentID}
+	q += ` ORDER BY collected_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	return s.scanSnapshots(q, args...)
+}
+
+func (s *Store) querySamplesInRangeDownsampled(agentID, from, to string, limit int) ([]payload.Snapshot, error) {
+	const maxFetch = 20_000
 	q := `SELECT collected_at, payload_json FROM raw_samples WHERE agent_id = ?`
 	args := []any{agentID}
 	if from != "" {
@@ -149,9 +163,36 @@ func (s *Store) QuerySamples(agentID, from, to string, limit int) ([]payload.Sna
 		q += ` AND collected_at <= ?`
 		args = append(args, to)
 	}
-	q += ` ORDER BY collected_at DESC LIMIT ?`
-	args = append(args, limit)
+	q += ` ORDER BY collected_at ASC LIMIT ?`
+	args = append(args, maxFetch)
 
+	all, err := s.scanSnapshots(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	return downsampleSnapshots(all, limit), nil
+}
+
+func downsampleSnapshots(samples []payload.Snapshot, limit int) []payload.Snapshot {
+	if len(samples) == 0 || limit <= 0 {
+		return samples
+	}
+	if len(samples) <= limit {
+		return samples
+	}
+	if limit == 1 {
+		return []payload.Snapshot{samples[len(samples)-1]}
+	}
+	out := make([]payload.Snapshot, limit)
+	denom := limit - 1
+	for i := 0; i < limit; i++ {
+		idx := (i * (len(samples) - 1)) / denom
+		out[i] = samples[idx]
+	}
+	return out
+}
+
+func (s *Store) scanSnapshots(q string, args ...any) ([]payload.Snapshot, error) {
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err

@@ -20,7 +20,7 @@ export function HistoryWorkbench({
   children: ReactNode
 }) {
   const { t } = useTranslation()
-  const { viewMode } = useHistoryView()
+  const { viewMode, sampleLimit, setSampleLimit } = useHistoryView()
   const history = useSelectedHistorySnapshot(viewMode === 'history')
   const span = sampleTimeSpan(history.samples)
 
@@ -37,9 +37,12 @@ export function HistoryWorkbench({
       <HistoryTimeBar
         timeRange={history.timeRange}
         onTimeRangeChange={history.setTimeRange}
-        sampleIndex={history.sampleIndex}
-        onSampleIndexChange={history.setSampleIndex}
-        sampleCount={history.samples.length}
+        samples={history.samples}
+        buckets={history.buckets}
+        bucketIndex={history.bucketIndex}
+        onBucketIndexChange={history.setBucketIndex}
+        sampleLimit={sampleLimit}
+        onSampleLimitChange={setSampleLimit}
         collectedAt={history.snapshot?.collectedAt}
         spanFrom={span.from}
         spanTo={span.to}

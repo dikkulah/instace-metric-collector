@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=make_helpers.sh
 source "$ROOT/tool/make_helpers.sh"
+# shellcheck source=history_db_path.sh
+source "$ROOT/tool/history_db_path.sh"
+
+HISTORY_DB="$(resolve_history_db "$ROOT")"
 
 PORT="${SERVER_PORT:-8081}"
 BIN="$ROOT/go/bin/hub"
@@ -29,5 +33,6 @@ cd "$ROOT"
 exec env \
   METRICS_COLLECTION_INTERVAL=5000 \
   METRICS_UI_ENABLED=true \
+  METRICS_HISTORY_DB_PATH="$HISTORY_DB" \
   SERVER_PORT="$PORT" \
   "$BIN"

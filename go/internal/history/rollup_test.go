@@ -86,10 +86,38 @@ func TestQuerySamplesWithResolutionHourlyFallbackToRaw(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(out) != 1 {
-		t.Fatalf("fallback hourly = %d, want 1 raw sample", len(out))
+		t.Fatalf("fallback hourly = %d, want 1 sample", len(out))
 	}
 	if out[0].Payload.CPULoad != 42 {
 		t.Fatalf("cpu = %v", out[0].Payload.CPULoad)
+	}
+}
+
+func TestQuerySamplesWithResolutionHourlySparseUsesRaw(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "sparse.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	base := time.Now().UTC().Truncate(time.Minute)
+	for i := 0; i < 20; i++ {
+		ts := base.Add(time.Duration(i*5) * time.Second).Format(time.RFC3339Nano)
+		if err := store.WriteSample("agent-1", payload.Snapshot{
+			CollectedAt: ts,
+			Payload:     payload.MetricsPayload{CPULoad: float64(10 + i), UsedMemory: 50, TotalMemory: 100},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out, err := store.QuerySamplesWithResolution("agent-1", "", "", "hourly", 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) < 10 {
+		t.Fatalf("sparse hourly should return raw samples, got %d", len(out))
 	}
 }
 

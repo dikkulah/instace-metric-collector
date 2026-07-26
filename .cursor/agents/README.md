@@ -28,3 +28,7 @@ Cursor uses **two layers**:
 ## Git + terminal
 
 All write agents may run `git`, `make`, `go test`, and curl. Commits only when the user asks.
+
+## Backend ↔ UI
+
+User-facing API or config changes require matching dashboard work in the same task. Rule: `.cursor/rules/backend-ui-parity.mdc`.

@@ -1,0 +1,48 @@
+---
+description: Backend API/config changes must ship related dashboard UI in the same task
+alwaysApply: true
+---
+
+# Backend ↔ UI parity
+
+User-facing backend work is **not done** until the dashboard reflects it. Do not stop at “API works in curl”.
+
+## When this applies
+
+Ship matching UI when you change any of:
+
+- REST/SSE routes under `go/internal/web/`
+- Hub/agent APIs consumed by `go/web/frontend/src/api/`
+- Request/response shapes (`payload/`, history `resolution`, alert config, probe settings, …)
+- Config keys or semantics surfaced in hub settings / agent drill-down
+- Rollup or retention behaviour that changes what the UI receives (e.g. hourly = partial payload)
+
+## Same-task UI checklist
+
+1. **Types** — `go/web/frontend/src/api/types.ts` + `client.ts` / hooks (`use*.ts`)
+2. **Screens** — route/page or workbench that exposes the feature
+3. **i18n** — EN + TR keys in `src/i18n/*.json` (V20)
+4. **Empty/error states** — loading, no data, partial data (rollup vs raw)
+5. **Verify** — `npm run build` in `go/web/frontend/`; visual change → ui-visual-review skill
+
+## Examples
+
+| Backend change | Required UI follow-up |
+|----------------|----------------------|
+| New `GET/PUT` hub endpoint | Hook + settings panel or page section |
+| History `resolution=hourly` partial payload | Normalize/null-safe UI; disable tooltips or show honest empty state |
+| New alert/notification field | Alerts page + form control + i18n |
+| Agent status enum | `agentStatus.ts`, sidebar badges, filters |
+
+## When UI can be skipped (say so explicitly)
+
+- Pure collector/runtime internals with no API or payload contract change
+- Hub-only ops with no dashboard surface yet — **open a follow-up** or note in PR
+- Breaking API change blocked on ADR — stop at council gate first
+
+## Multi-agent
+
+- Backend + UI in one user request → **same session** or parallel `dashboard-ui` + backend agent; merge types/hooks before claiming done.
+- Do **not** merge backend-only PRs for features the UI is meant to use.
+
+See `docs/UI_PLAN.md`, `metrics-collector-ui.mdc` (V16–V20).

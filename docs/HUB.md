@@ -133,10 +133,12 @@ Alert types: `CPU_HIGH`, `MEMORY_HIGH`, `DISK_HIGH`, `CONTAINER_EXITED`, `CONTAI
 
 ```bash
 METRICS_HISTORY_ENABLED=true
-METRICS_HISTORY_DB_PATH=metrics-history.db
+METRICS_HISTORY_DB_PATH=data/metrics-history.db   # dev scripts use repo-root/data/ (absolute path)
 METRICS_HISTORY_PROFILE=full
 METRICS_HISTORY_RETENTION_DAYS=30
 ```
+
+Local dev (`make dev-watch`, `make run-hub`) sets `METRICS_HISTORY_DB_PATH` to `<repo>/data/metrics-history.db` so history survives restarts regardless of process cwd. Without this, `metrics-history.db` relative to cwd creates duplicate DBs (e.g. repo root vs `go/`).
 
 API: `GET /api/v1/agents/{id}/history?from=&to=&limit=` (SQLite when `from`/`to` set)
 
