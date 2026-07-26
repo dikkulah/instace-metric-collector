@@ -236,7 +236,7 @@ rules:
 - [ ] Webhook payload v2 (backward compatible alanlar)
 - [x] Alert UI + i18n (liste + ACK)
 - [x] Unit test: rule evaluation, dedup
-- [ ] Silence window + ek kanallar (Slack/Discord/email)
+- [ ] Silence window + ek kanallar (Slack/Discord/email) — **hub notifier only (V21)**
 
 ### Mevcut `AlertService` ile ilişki
 
@@ -288,6 +288,7 @@ Phase 7 `AlertService` → Phase 11’de `AlertEngine` + `NotificationDispatcher
 - [ ] REST + UI panel
 - [ ] EN/TR runbook string’leri locale dosyasında (V20)
 - [ ] Test: fixture snapshot → beklenen insight
+- [ ] **V21:** rolling windows and trend math on hub ingest/history only — not agent collect path
 
 ---
 

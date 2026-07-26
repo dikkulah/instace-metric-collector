@@ -30,6 +30,7 @@ Outpost, **Beszel'in sahip olmadığı üç yeteneği** (süreç + servis drill-
 |-------|--------|
 | Hedef | Homelab, küçük ekip, TR MSP — 1–20 sunucu |
 | Mimari | Agent (push) → Hub (SQLite) → React SPA |
+| İlke | **Agent host'u yormaz (V21)** — ağır iş hub'da |
 | Rakip | Beszel (en yakın), Netdata, Glances, Uptime Kuma |
 | Yapılmayacak | Prometheus stack, ML anomaly, Zabbix parity, 800+ collector |
 
@@ -156,5 +157,6 @@ G6 (release) → G7b (rollup) → P10 (historic UI) → P11 (alerts) → P12 (di
 - [ADR-010](DECISIONS/ADR-010-connectivity-probes.md) — connectivity probes
 - [ADR-011](DECISIONS/ADR-011-alert-lifecycle.md) — alert lifecycle ve bildirim kanalları
 - [ADR-012](DECISIONS/ADR-012-history-rollup.md) — history rollup katmanları
+- [ADR-013](DECISIONS/ADR-013-agent-lightness.md) — agent footprint (V21)
 
 Plan detayı: [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md) · Yol haritası: [`GO_REWRITE_PLAN.md`](GO_REWRITE_PLAN.md)

@@ -5,16 +5,39 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
 )
 
+const defaultMaxTargets = 16
+
 // Config lists probe targets from METRICS_PROBE_TARGETS env (comma-separated host:port or http URLs).
 type Config struct {
 	Targets []string
 	Timeout time.Duration
+}
+
+func maxProbeTargets() int {
+	raw := strings.TrimSpace(os.Getenv("METRICS_PROBE_MAX_TARGETS"))
+	if raw == "" {
+		return defaultMaxTargets
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 1 {
+		return defaultMaxTargets
+	}
+	return n
+}
+
+func capTargets(targets []string) []string {
+	max := maxProbeTargets()
+	if len(targets) <= max {
+		return targets
+	}
+	return targets[:max]
 }
 
 func LoadFromEnv() Config {
@@ -28,6 +51,7 @@ func LoadFromEnv() Config {
 			targets = append(targets, t)
 		}
 	}
+	targets = capTargets(targets)
 	timeout := 3 * time.Second
 	if v := strings.TrimSpace(os.Getenv("METRICS_PROBE_TIMEOUT")); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {

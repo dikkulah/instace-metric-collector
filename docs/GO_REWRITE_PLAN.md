@@ -159,7 +159,9 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 | `POST /api/v1/alerts/{id}/ack` | [x] |
 | AlertsPage + hub agent ACK UI | [x] |
 | Silence / Slack / Discord / email | [ ] |
-| Sustained rules (`avg > x for 5m`) | [ ] |
+| Sustained rules (`avg > x for 5m`) | [ ] — **hub-only (V21)** |
+
+**V21 acceptance:** P11 features must not add blocking I/O or SQLite on the agent collect path.
 
 **Detay:** [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md)
 

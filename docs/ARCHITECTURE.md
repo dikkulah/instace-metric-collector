@@ -78,7 +78,24 @@ Environment variables (see `internal/config/config.go`):
 | `DOCKER_ENABLED` | `true` | Container collector |
 | `DOCKER_COLLECTION_INTERVAL` | `15000` (ms) | Docker refresh interval |
 | `LOGGING_FILE_NAME` | `metrics-collector.log` | JSON payload log file |
+| `METRICS_PROBE_MAX_TARGETS` | `16` | Cap connectivity probes per tick (V21) |
 | `METRICS_HUB_ENABLED` | `false` | Use `cmd/hub` instead of agent |
+
+## Agent footprint (V21, ADR-013)
+
+The agent collect loop must stay **non-blocking** and **bounded**:
+
+- Process list: top **50** by CPU (`internal/collector/processes.go`)
+- Connectivity probes: max **16** targets per tick (`METRICS_PROBE_MAX_TARGETS`)
+- In-memory history ring: **120** snapshots when UI enabled
+- Docker metadata: separate goroutine + cache (V5)
+- Push to hub: async queue (`internal/push`)
+
+Heavy work (SQLite history, rollup, alert engine, sustained rules, diagnostics trends) runs on **hub only**.
+
+Optional self-metrics on each payload (additive): `agentMemoryBytes`, `agentGoroutines`, `collectDurationMs`.
+
+See [`DECISIONS/ADR-013-agent-lightness.md`](DECISIONS/ADR-013-agent-lightness.md).
 
 ## Hub mode
 

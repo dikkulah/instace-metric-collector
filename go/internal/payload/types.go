@@ -13,6 +13,10 @@ type MetricsPayload struct {
 	ConnectivityProbes   []ConnectivityProbe `json:"connectivityProbes,omitempty"`
 	AvailableProcessors  int                `json:"availableProcessors"`
 	SystemLoadAverage    float64            `json:"systemLoadAverage"`
+	// Agent self-metrics (ADR-013, additive V6).
+	AgentMemoryBytes  int64 `json:"agentMemoryBytes,omitempty"`
+	AgentGoroutines   int   `json:"agentGoroutines,omitempty"`
+	CollectDurationMs int64 `json:"collectDurationMs,omitempty"`
 }
 
 type ProcessInfo struct {

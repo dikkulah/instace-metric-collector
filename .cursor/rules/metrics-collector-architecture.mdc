@@ -4,7 +4,7 @@ globs: go/internal/collector/**,go/internal/runtime/**,go/internal/payload/**
 alwaysApply: false
 ---
 
-# Architecture rules (V1–V3, V8, V11, V14)
+# Architecture rules (V1–V3, V8, V11, V14, V21)
 
 ## V1 — OS logic isolation
 
@@ -31,3 +31,11 @@ Collector errors return partial payloads or log warnings. Never crash the schedu
 ## V14 — Tests for new collectors
 
 New or changed collector logic requires unit tests in `go/internal/collector/`.
+
+## V21 — Agent must not strain the host (ADR-013)
+
+- Main collect ticker must not block on network, SQLite, or webhooks — use async queues/goroutines.
+- Cap per-tick work: process top-N (50), probe targets (16 default), ring buffer (120).
+- Sustained alert rules, history rollup, diagnostics trends → **hub only**, not agent.
+- Expose optional self-metrics: `agentMemoryBytes`, `agentGoroutines`, `collectDurationMs` (additive payload).
+- PRs that add agent-side persistence or unbounded scans must stop and ask the user.
