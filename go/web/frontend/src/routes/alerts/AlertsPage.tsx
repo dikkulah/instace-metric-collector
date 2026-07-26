@@ -1,5 +1,7 @@
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAlerts } from '../../api/useAlerts'
+import { useHubAgents } from '../../api/useHubAgents'
 import { PageShell } from '../../components/layout/PageShell'
 import { StatusPill } from '../../components/StatusPill'
 
@@ -29,10 +31,19 @@ function alertStatusLabel(status: string, t: (key: string) => string): string {
 
 export function AlertsPage() {
   const { t } = useTranslation()
-  const { alerts, acknowledge, ackingId } = useAlerts()
+  const { agentId } = useParams<{ agentId?: string }>()
+  const agents = useHubAgents()
+  const { alerts, acknowledge, ackingId } = useAlerts(agentId)
+  const agent = agentId ? agents.find((a) => a.agentId === agentId) : undefined
+  const showAgentColumn = !agentId
 
   return (
     <PageShell title={t('nav.alerts')} variant="scroll">
+      {agentId && agent && (
+        <p className="text-sm text-on-surface-variant -mt-2 mb-4">
+          {agent.hostname} <span className="mono text-xs">({agentId})</span>
+        </p>
+      )}
       {alerts.length === 0 ? (
         <div className="panel p-12 text-center text-on-surface-variant text-sm">{t('alerts.empty')}</div>
       ) : (
@@ -40,7 +51,7 @@ export function AlertsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left label-caps border-b border-outline-variant">
-                <th className="p-3">{t('alerts.agent')}</th>
+                {showAgentColumn && <th className="p-3">{t('alerts.agent')}</th>}
                 <th className="p-3">{t('alerts.rule')}</th>
                 <th className="p-3">{t('alerts.severity')}</th>
                 <th className="p-3">{t('alerts.status')}</th>
@@ -51,7 +62,7 @@ export function AlertsPage() {
             <tbody>
               {alerts.map((a) => (
                 <tr key={a.id} className="border-t border-outline-variant/50">
-                  <td className="p-3 mono">{a.agentId}</td>
+                  {showAgentColumn && <td className="p-3 mono">{a.agentId}</td>}
                   <td className="p-3 mono">{a.ruleId}</td>
                   <td className="p-3">{a.severity}</td>
                   <td className="p-3">
