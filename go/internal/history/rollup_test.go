@@ -65,6 +65,34 @@ func TestRunHourlyRollup(t *testing.T) {
 	}
 }
 
+func TestQuerySamplesWithResolutionHourlyFallbackToRaw(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "fallback.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	ts := time.Now().UTC().Format(time.RFC3339Nano)
+	if err := store.WriteSample("agent-1", payload.Snapshot{
+		CollectedAt: ts,
+		Payload:     payload.MetricsPayload{CPULoad: 42, UsedMemory: 50, TotalMemory: 100},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := store.QuerySamplesWithResolution("agent-1", "", "", "hourly", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("fallback hourly = %d, want 1 raw sample", len(out))
+	}
+	if out[0].Payload.CPULoad != 42 {
+		t.Fatalf("cpu = %v", out[0].Payload.CPULoad)
+	}
+}
+
 func TestQuerySamplesWithResolutionInvalid(t *testing.T) {
 	dir := t.TempDir()
 	store, err := Open(filepath.Join(dir, "bad.db"), "full", 30)

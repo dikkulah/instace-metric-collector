@@ -9,6 +9,8 @@ export function HistoryTimeBar({
   onSampleIndexChange,
   sampleCount,
   collectedAt,
+  spanFrom,
+  spanTo,
 }: {
   timeRange: HistoryTimeRange
   onTimeRangeChange: (range: HistoryTimeRange) => void
@@ -16,9 +18,19 @@ export function HistoryTimeBar({
   onSampleIndexChange: (index: number) => void
   sampleCount: number
   collectedAt?: string
+  spanFrom?: string
+  spanTo?: string
 }) {
   const { t } = useTranslation()
   const maxIndex = Math.max(sampleCount - 1, 0)
+
+  const formatSpan = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleString()
+    } catch {
+      return iso
+    }
+  }
 
   return (
     <div className="panel p-3 mb-4 space-y-3 shrink-0">
@@ -28,6 +40,14 @@ export function HistoryTimeBar({
           {t('history.sampleCount', { count: sampleCount })}
         </span>
       </div>
+      {sampleCount > 0 && spanFrom && spanTo && (
+        <p className="text-xs text-on-surface-variant">
+          {t('history.dataSpan', {
+            from: formatSpan(spanFrom),
+            to: formatSpan(spanTo),
+          })}
+        </p>
+      )}
       {sampleCount > 0 && (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2 text-xs text-on-surface-variant">

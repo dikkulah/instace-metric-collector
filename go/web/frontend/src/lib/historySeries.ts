@@ -58,6 +58,16 @@ export function sortSamplesAsc(samples: MetricsSnapshot[]): MetricsSnapshot[] {
   )
 }
 
+/** Earliest and latest collectedAt in sorted samples (ISO strings). */
+export function sampleTimeSpan(samples: MetricsSnapshot[]): { from?: string; to?: string } {
+  if (samples.length === 0) return {}
+  const sorted = sortSamplesAsc(samples)
+  return {
+    from: sorted[0]?.collectedAt,
+    to: sorted[sorted.length - 1]?.collectedAt,
+  }
+}
+
 export function filterSamplesByRange(
   samples: MetricsSnapshot[],
   range: HistoryTimeRange,

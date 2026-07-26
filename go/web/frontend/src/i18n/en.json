@@ -8,6 +8,8 @@
   "history.range.7d": "7d",
   "history.loading": "Loading history…",
   "history.empty": "No samples in this time range.",
+  "history.emptyHint": "No samples in this time range. Ensure the agent is pushing to the hub and history is enabled.",
+  "history.dataSpan": "Data available: {from} – {to}",
   "history.error": "Could not load history.",
   "history.sampleCount": "{count} samples",
   "history.scrubber": "Snapshot time",

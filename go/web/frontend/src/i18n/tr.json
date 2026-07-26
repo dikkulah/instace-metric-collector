@@ -8,6 +8,8 @@
   "history.range.7d": "7 gün",
   "history.loading": "Geçmiş yükleniyor…",
   "history.empty": "Bu aralıkta örnek yok.",
+  "history.emptyHint": "Bu aralıkta örnek yok. Ajanın hub'a push yaptığından ve geçmişin açık olduğundan emin olun.",
+  "history.dataSpan": "Mevcut veri: {from} – {to}",
   "history.error": "Geçmiş yüklenemedi.",
   "history.sampleCount": "{count} örnek",
   "history.scrubber": "Anlık görüntü zamanı",

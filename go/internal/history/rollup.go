@@ -204,14 +204,29 @@ func (s *Store) QueryHourlyRollup(agentID, from, to string, limit int) ([]payloa
 }
 
 // QuerySamplesWithResolution routes to raw or hourly store per ADR-012.
+// When rollup tables are empty (e.g. fresh hub), falls back to raw_samples so UI ranges still work.
 func (s *Store) QuerySamplesWithResolution(agentID, from, to, resolution string, limit int) ([]payload.Snapshot, error) {
 	switch resolution {
 	case "", "raw":
 		return s.QuerySamples(agentID, from, to, limit)
 	case "hourly":
-		return s.QueryHourlyRollup(agentID, from, to, limit)
+		out, err := s.QueryHourlyRollup(agentID, from, to, limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(out) == 0 {
+			return s.QuerySamples(agentID, from, to, limit)
+		}
+		return out, nil
 	case "daily":
-		return s.QueryDailyRollup(agentID, from, to, limit)
+		out, err := s.QueryDailyRollup(agentID, from, to, limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(out) == 0 {
+			return s.QuerySamples(agentID, from, to, limit)
+		}
+		return out, nil
 	default:
 		return nil, fmt.Errorf("unsupported resolution: %s", resolution)
 	}

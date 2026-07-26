@@ -79,6 +79,12 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				logger.Warn("history store unavailable", "err", err)
 			} else {
 				logger.Info("history store enabled", "path", cfg.HistoryDBPath, "profile", cfg.HistoryProfile)
+				if err := histStore.RunHourlyRollup(ctx); err != nil {
+					logger.Warn("initial hourly rollup failed", "err", err)
+				}
+				if err := histStore.RunDailyRollup(ctx); err != nil {
+					logger.Warn("initial daily rollup failed", "err", err)
+				}
 				go func() {
 					rollupTicker := time.NewTicker(time.Hour)
 					retentionTicker := time.NewTicker(24 * time.Hour)

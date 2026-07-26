@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { MetricsContext } from '../context/MetricsContext'
 import { useHistoryView } from '../context/HistoryViewContext'
 import { useSelectedHistorySnapshot } from '../hooks/useSelectedHistorySnapshot'
+import { sampleTimeSpan } from '../lib/historySeries'
 import { EmptyState } from './EmptyState'
 import { ErrorBanner } from './ErrorBanner'
 import { HistoryTimeBar } from './HistoryTimeBar'
@@ -21,6 +22,7 @@ export function HistoryWorkbench({
   const { t } = useTranslation()
   const { viewMode } = useHistoryView()
   const history = useSelectedHistorySnapshot(viewMode === 'history')
+  const span = sampleTimeSpan(history.samples)
 
   if (viewMode !== 'history') {
     return (
@@ -39,11 +41,13 @@ export function HistoryWorkbench({
         onSampleIndexChange={history.setSampleIndex}
         sampleCount={history.samples.length}
         collectedAt={history.snapshot?.collectedAt}
+        spanFrom={span.from}
+        spanTo={span.to}
       />
       {history.error && <ErrorBanner message={t('history.error')} />}
       {history.loading && !history.snapshot && <EmptyState message={t('history.loading')} />}
       {!history.loading && !history.snapshot && !history.error && (
-        <EmptyState message={t('history.empty')} />
+        <EmptyState message={t('history.emptyHint')} />
       )}
       {history.snapshot && (
         <MetricsContext.Provider
