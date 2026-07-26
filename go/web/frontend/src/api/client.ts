@@ -1,3 +1,8 @@
+export async function apiDelete(path: string): Promise<void> {
+  const res = await fetch(path, { method: 'DELETE' })
+  if (!res.ok && res.status !== 204) throw new Error(`${path}: ${res.status}`)
+}
+
 export async function apiGet<T>(path: string): Promise<T | null> {
   const res = await fetch(path)
   if (res.status === 204) return null

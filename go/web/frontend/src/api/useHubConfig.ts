@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react'
 import { apiGet } from './client'
 
+export interface HubHistoryConfig {
+  enabled: boolean
+  profile: string
+  retentionDays: number
+  dbPath?: string
+}
+
 export interface HubConfig {
   historySize: number
   version: string
   collectionIntervalMs: number
   staleAfterMs: number
   offlineAfterMs: number
+  history?: HubHistoryConfig
 }
 
 const defaults: HubConfig = {

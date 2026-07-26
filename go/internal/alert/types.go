@@ -39,10 +39,13 @@ type Event struct {
 
 // EvalContext is the input for rule evaluation — ingest data only (V16).
 type EvalContext struct {
-	AgentID  string
-	Hostname string
-	Snapshot payload.Snapshot
-	LastSeen time.Time
+	AgentID         string
+	Hostname        string
+	Snapshot        payload.Snapshot
+	LastSeen        time.Time
+	Sustained       *SustainedTracker
+	SustainedWindow time.Duration
+	Now             time.Time
 }
 
 // Rule evaluates a single threshold or state condition. Stateless; cooldown lives in Engine.

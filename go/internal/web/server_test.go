@@ -186,7 +186,7 @@ func TestHandleAlertAck(t *testing.T) {
 	if err := hist.SaveAlertEvent(ev, history.AlertStatusOpen); err != nil {
 		t.Fatal(err)
 	}
-	alerts, err := hist.ListAlerts("", 10)
+	alerts, err := hist.ListAlerts("", "", "", 10)
 	if err != nil || len(alerts) != 1 {
 		t.Fatalf("alerts = %+v err=%v", alerts, err)
 	}
@@ -215,6 +215,54 @@ func TestHandleAlertAck(t *testing.T) {
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("second ack status = %d", rec.Code)
+	}
+}
+
+func TestHandleAlertResolve(t *testing.T) {
+	dir := t.TempDir()
+	hist, err := history.Open(dir+"/test.db", "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hist.Close()
+
+	ev := alert.Event{
+		AgentID:   "a1",
+		AlertType: alert.AlertTypeCPUHigh,
+		Severity:  alert.SeverityWarning,
+	}
+	if err := hist.SaveAlertEvent(ev, history.AlertStatusOpen); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := hist.ListAlerts("", "", "", 10)
+	if err != nil || len(alerts) != 1 {
+		t.Fatalf("alerts = %+v err=%v", alerts, err)
+	}
+	alertID := alerts[0].ID
+
+	deps := testDeps(appmode.Hub, config.Config{}, nil, nil, nil)
+	deps.History = hist
+	srv := NewServer(deps)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/alerts/"+alertID+"/resolve", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var updated history.AlertRecord
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != history.AlertStatusResolved || updated.ResolvedAt == "" {
+		t.Fatalf("status = %+v", updated)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/alerts/"+alertID+"/resolve", nil)
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("second resolve status = %d", rec.Code)
 	}
 }
 

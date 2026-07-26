@@ -19,6 +19,9 @@ func LoadConfigStore(cfg config.Config, persist SettingsPersister) *ConfigStore 
 		cfg.AlertsStaleMultiplier,
 		cfg.AlertsCooldown,
 	)
+	initial.SustainedWindowMinutes = defaultSustainedMinutes(cfg.AlertsSustainedWindow)
+	initial.OfflineAfterHours = defaultOfflineHours(cfg.HubOfflineAfter)
+
 	if persist != nil {
 		var saved ConfigSnapshot
 		if ok, err := persist.GetSetting(SettingsKey(), &saved); err == nil && ok {

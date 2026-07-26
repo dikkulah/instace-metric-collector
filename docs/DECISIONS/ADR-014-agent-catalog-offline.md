@@ -28,11 +28,13 @@ On hub boot, `Registry.Hydrate` seeds summaries from `ListKnownAgents`. Snapshot
 
 Server computes `status` per agent:
 
-| Status | Condition |
-|--------|-----------|
-| `live` | `now - lastSeen < staleAfter` |
-| `stale` | `staleAfter ≤ age < offlineAfter` |
-| `offline` | `age ≥ offlineAfter` |
+
+| Status    | Condition                         |
+| --------- | --------------------------------- |
+| `live`    | `now - lastSeen < staleAfter`     |
+| `stale`   | `staleAfter ≤ age < offlineAfter` |
+| `offline` | `age ≥ offlineAfter`              |
+
 
 - `staleAfter` — existing alert stale window (`AlertConfig.StaleAfter`)
 - `offlineAfter` — new env `METRICS_HUB_OFFLINE_AFTER` (default `24h`)
@@ -63,8 +65,11 @@ Server computes `status` per agent:
 
 ## Alternatives considered
 
-| Option | Rejected because |
-|--------|------------------|
-| Registry-only with TTL eviction | Loses identity on restart; no historic drill-down |
-| Separate catalog DB | Extra operational surface; history store already owns agent samples |
-| Client-side offline detection only | Inconsistent after restart; no `/current` fallback |
+
+| Option                             | Rejected because                                                    |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| Registry-only with TTL eviction    | Loses identity on restart; no historic drill-down                   |
+| Separate catalog DB                | Extra operational surface; history store already owns agent samples |
+| Client-side offline detection only | Inconsistent after restart; no `/current` fallback                  |
+
+

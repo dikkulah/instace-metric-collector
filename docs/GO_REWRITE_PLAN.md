@@ -132,7 +132,7 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 | `internal/history/` SQLite + migrations | [x] |
 | Tier 0 `raw_samples`: `payload_json` NOT NULL + metadata | [x] |
 | `metrics.history.profile` (`full` default, `standard`, `minimal`) | [x] |
-| Hourly/daily rollup jobs (Tier 0 silinmeden önce) | [x] hourly (G7b); daily [ ] |
+| Hourly/daily rollup jobs (Tier 0 silinmeden önce) | [x] |
 | History API: `GET /api/v1/agents/{id}/history?resolution=` | [x] |
 | (G7b) Normalized `process_samples` / `service_samples` / `container_samples` | [ ] |
 
@@ -158,8 +158,8 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 | Alert store + `GET /api/v1/alerts` | [x] |
 | `POST /api/v1/alerts/{id}/ack` | [x] |
 | AlertsPage + hub agent ACK UI | [x] |
-| Silence / Slack / Discord / email | [ ] |
-| Sustained rules (`avg > x for 5m`) | [ ] — **hub-only (V21)** |
+| Silence / Slack / Discord / email | [x] backend; UI gaps → [P11 UI plan](PLANS/P11-UI-GAPS-PLAN.md) |
+| Sustained rules (`avg > x for 5m`) | [x] — UI timing planned |
 
 **V21 acceptance:** P11 features must not add blocking I/O or SQLite on the agent collect path.
 

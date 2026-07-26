@@ -94,6 +94,15 @@ func (e *Engine) Evaluate(agentID string, snap payload.Snapshot, prev *payload.S
 
 	for _, d := range snap.Payload.DiskUsage {
 		if d.UsePercent >= th.DiskFillingPercent {
+			details := map[string]any{
+				"mount":        d.Mount,
+				"usePercent":   d.UsePercent,
+				"totalBytes":   d.TotalBytes,
+				"thresholdPct": th.DiskFillingPercent,
+			}
+			if days, ok := diskFillProjection(e.history, agentID, d.Mount, d.UsePercent); ok {
+				details["daysUntilFull"] = days
+			}
 			out = append(out, Insight{
 				ID:         stableInsightID(agentID, "DISK_FILLING", d.Mount),
 				AgentID:    agentID,
@@ -101,12 +110,7 @@ func (e *Engine) Evaluate(agentID string, snap payload.Snapshot, prev *payload.S
 				Severity:   "critical",
 				DetectedAt: now,
 				SummaryKey: "diagnostics.diskFilling",
-				Details: map[string]any{
-					"mount":        d.Mount,
-					"usePercent":   d.UsePercent,
-					"totalBytes":   d.TotalBytes,
-					"thresholdPct": th.DiskFillingPercent,
-				},
+				Details:    details,
 			})
 		}
 	}

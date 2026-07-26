@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useHubAgents } from '../../api/useHubAgents'
 import { HubAlertSettings } from './HubAlertSettings'
+import { HubNotificationSettings } from '../../components/HubNotificationSettings'
+import { HubOpsPanel } from '../../components/HubOpsPanel'
 import { PillTabs } from '../../components/PillTabs'
 import { SearchInput } from '../../components/SearchInput'
 import { StatusPill } from '../../components/StatusPill'
@@ -55,6 +57,8 @@ export function HubPage() {
         </div>
       </div>
       <HubAlertSettings />
+      <HubNotificationSettings />
+      <HubOpsPanel />
       <PillTabs
         tabs={[
           { id: 'all' as AgentListFilter, label: t('hub.filter.all') },

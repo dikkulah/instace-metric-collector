@@ -11,6 +11,8 @@ export interface HubAlertConfig {
   memoryPressurePercent: number
   diskFillingPercent: number
   containerRestartCount: number
+  sustainedWindowMinutes: number
+  offlineAfterHours: number
 }
 
 const defaults: HubAlertConfig = {
@@ -23,6 +25,8 @@ const defaults: HubAlertConfig = {
   memoryPressurePercent: 85,
   diskFillingPercent: 85,
   containerRestartCount: 3,
+  sustainedWindowMinutes: 5,
+  offlineAfterHours: 24,
 }
 
 export function useHubAlertConfig() {

@@ -181,6 +181,59 @@ func TestAgentStaleRule(t *testing.T) {
 	}
 }
 
+type fakeResolver struct {
+	mu       sync.Mutex
+	resolved []string
+}
+
+func (f *fakeResolver) ResolveOpenAlerts(agentID, ruleID string) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resolved = append(f.resolved, agentID+"|"+ruleID)
+	return 1, nil
+}
+
+func (f *fakeResolver) last() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.resolved))
+	copy(out, f.resolved)
+	return out
+}
+
+func TestEngineAutoResolveCPU(t *testing.T) {
+	cfg := testConfig(90, 0.9, 90)
+	notifier := &recordingNotifier{}
+	engine := NewEngine(DefaultRules(cfg), notifier, cfg, testLogger())
+	resolver := &fakeResolver{}
+	engine.SetResolver(resolver)
+	engine.ResetCooldown()
+
+	now := time.Now().UTC()
+	snapHigh := payload.Snapshot{
+		CollectedAt: now.Format(time.RFC3339Nano),
+		Payload:     payload.MetricsPayload{CPULoad: 95, TotalMemory: 100, UsedMemory: 10},
+	}
+	snapLow := payload.Snapshot{
+		CollectedAt: now.Add(time.Second).Format(time.RFC3339Nano),
+		Payload:     payload.MetricsPayload{CPULoad: 10, TotalMemory: 100, UsedMemory: 10},
+	}
+
+	engine.OnIngest("a1", "host", snapHigh)
+	engine.OnIngest("a1", "host", snapLow)
+
+	resolved := resolver.last()
+	foundCPU := false
+	for _, key := range resolved {
+		if key == "a1|"+AlertTypeCPUHigh {
+			foundCPU = true
+		}
+	}
+	if !foundCPU {
+		t.Fatalf("expected CPU_HIGH resolve, got %v", resolved)
+	}
+}
+
 func TestConfigStoreUpdate(t *testing.T) {
 	cfg := testConfig(90, 90, 90)
 	updated := cfg.Update(ConfigSnapshot{

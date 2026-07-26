@@ -57,7 +57,7 @@ func TestAcknowledgeAlert(t *testing.T) {
 	if err := store.SaveAlertEvent(ev, AlertStatusOpen); err != nil {
 		t.Fatal(err)
 	}
-	alerts, err := store.ListAlerts("agent-1", 10)
+	alerts, err := store.ListAlerts("agent-1", "", "", 10)
 	if err != nil || len(alerts) != 1 {
 		t.Fatalf("list = %+v err=%v", alerts, err)
 	}
@@ -79,5 +79,70 @@ func TestAcknowledgeAlert(t *testing.T) {
 	_, err = store.AcknowledgeAlert("missing-id")
 	if err != ErrAlertNotFound {
 		t.Fatalf("missing err = %v", err)
+	}
+}
+
+func TestResolveAlert(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "resolve.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	ev := alert.Event{
+		AgentID:   "agent-1",
+		AlertType: alert.AlertTypeCPUHigh,
+		Severity:  alert.SeverityWarning,
+	}
+	if err := store.SaveAlertEvent(ev, AlertStatusOpen); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := store.ListAlerts("agent-1", "", "", 10)
+	if err != nil || len(alerts) != 1 {
+		t.Fatalf("list = %+v err=%v", alerts, err)
+	}
+	id := alerts[0].ID
+
+	resolved, err := store.ResolveAlert(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Status != AlertStatusResolved || resolved.ResolvedAt == "" {
+		t.Fatalf("resolved = %+v", resolved)
+	}
+
+	_, err = store.ResolveAlert(id)
+	if err != ErrAlertNotResolvable {
+		t.Fatalf("second resolve err = %v", err)
+	}
+}
+
+func TestResolveOpenAlerts(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "open.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	ev := alert.Event{
+		AgentID:   "agent-1",
+		AlertType: alert.AlertTypeCPUHigh,
+		Severity:  alert.SeverityWarning,
+	}
+	if err := store.SaveAlertEvent(ev, AlertStatusOpen); err != nil {
+		t.Fatal(err)
+	}
+	n, err := store.ResolveOpenAlerts("agent-1", alert.AlertTypeCPUHigh)
+	if err != nil || n != 1 {
+		t.Fatalf("resolve open n=%d err=%v", n, err)
+	}
+	open, err := store.ListAlerts("agent-1", AlertStatusOpen, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(open) != 0 {
+		t.Fatalf("expected no open alerts, got %+v", open)
 	}
 }

@@ -81,6 +81,15 @@ function reasonText(
       const mount = strVal(d.mount)
       const percent = formatPercent(Number(d.usePercent ?? 0))
       const threshold = formatPercent(Number(d.thresholdPct ?? 85))
+      const days = Number(d.daysUntilFull ?? 0)
+      if (days > 0) {
+        return t('diagnostics.reason.diskFillingTrend', {
+          mount: mount ?? '/',
+          percent,
+          threshold,
+          days: Math.max(1, Math.round(days)),
+        })
+      }
       if (mount) {
         return t('diagnostics.reason.diskFilling', { mount, percent, threshold })
       }
@@ -133,6 +142,9 @@ function metricsForItem(
         ...push(t('diagnostics.metric.mount'), strVal(d.mount)),
         ...push(t('diagnostics.metric.diskUsed'), formatPercent(Number(d.usePercent ?? 0))),
         ...push(t('diagnostics.metric.threshold'), formatPercent(Number(d.thresholdPct ?? 85))),
+        ...(d.daysUntilFull != null
+          ? push(t('diagnostics.metric.daysUntilFull'), String(Math.max(1, Math.round(Number(d.daysUntilFull)))))
+          : []),
       ]
     case 'CONTAINER_FLAP':
       return [
@@ -155,6 +167,21 @@ function metricsForItem(
   }
 }
 
+function runbookSteps(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  item: DiagnosticItem,
+): string[] {
+  const base = `diagnostics.runbook.${item.type}`
+  const steps: string[] = []
+  for (let i = 1; i <= 4; i++) {
+    const key = `${base}.step${i}`
+    const text = t(key, { defaultValue: '' })
+    if (!text || text === key) break
+    steps.push(text)
+  }
+  return steps
+}
+
 function DiagnosticCard({
   item,
   t,
@@ -163,6 +190,7 @@ function DiagnosticCard({
   t: (key: string, opts?: Record<string, unknown>) => string
 }) {
   const metrics = metricsForItem(t, item)
+  const steps = runbookSteps(t, item)
   const accent =
     item.severity === 'critical'
       ? 'border-l-error'
@@ -192,6 +220,19 @@ function DiagnosticCard({
             </div>
           ))}
         </div>
+      )}
+
+      {steps.length > 0 && (
+        <details className="text-sm">
+          <summary className="cursor-pointer font-medium text-on-surface-variant">
+            {t('diagnostics.runbook.title')}
+          </summary>
+          <ol className="mt-2 list-decimal list-inside space-y-1 text-on-surface-variant">
+            {steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </details>
       )}
 
       <div className="text-xs text-on-surface-variant/70 pt-1 border-t border-outline-variant/40">

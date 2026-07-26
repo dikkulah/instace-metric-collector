@@ -27,7 +27,28 @@ func (r *CPUHighRule) ID() string { return "cpu-high" }
 
 func (r *CPUHighRule) Evaluate(ctx EvalContext) []Event {
 	th := r.cfg.Thresholds().CPUPercent
-	if ctx.Snapshot.Payload.CPULoad <= th {
+	cpu := ctx.Snapshot.Payload.CPULoad
+	if ctx.Sustained != nil && ctx.SustainedWindow > 0 {
+		avg, samples, ok := ctx.Sustained.Avg(ctx.AgentID, sustainedMetricCPU, ctx.SustainedWindow, ctx.Now)
+		if !ok || avg <= th {
+			return nil
+		}
+		return []Event{{
+			AgentID:     ctx.AgentID,
+			AlertType:   AlertTypeCPUHigh,
+			Severity:    SeverityWarning,
+			Message:     "CPU load above threshold (sustained)",
+			CollectedAt: ctx.Snapshot.CollectedAt,
+			Details: map[string]any{
+				"cpuLoad":         cpu,
+				"avgCpuLoad":      avg,
+				"sampleCount":     samples,
+				"sustainedWindow": ctx.SustainedWindow.String(),
+				"threshold":       th,
+			},
+		}}
+	}
+	if cpu <= th {
 		return nil
 	}
 	return []Event{{
@@ -37,10 +58,19 @@ func (r *CPUHighRule) Evaluate(ctx EvalContext) []Event {
 		Message:     "CPU load above threshold",
 		CollectedAt: ctx.Snapshot.CollectedAt,
 		Details: map[string]any{
-			"cpuLoad":   ctx.Snapshot.Payload.CPULoad,
+			"cpuLoad":   cpu,
 			"threshold": th,
 		},
 	}}
+}
+
+func (r *CPUHighRule) Cleared(ctx EvalContext) bool {
+	th := r.cfg.Thresholds().CPUPercent
+	if ctx.Sustained != nil && ctx.SustainedWindow > 0 {
+		avg, _, ok := ctx.Sustained.Avg(ctx.AgentID, sustainedMetricCPU, ctx.SustainedWindow, ctx.Now)
+		return ok && avg <= th
+	}
+	return ctx.Snapshot.Payload.CPULoad <= th
 }
 
 type MemoryHighRule struct {
@@ -56,6 +86,28 @@ func (r *MemoryHighRule) Evaluate(ctx EvalContext) []Event {
 		return nil
 	}
 	ratio := float64(ctx.Snapshot.Payload.UsedMemory) / float64(total)
+	if ctx.Sustained != nil && ctx.SustainedWindow > 0 {
+		avg, samples, ok := ctx.Sustained.Avg(ctx.AgentID, sustainedMetricMemory, ctx.SustainedWindow, ctx.Now)
+		if !ok || avg <= th {
+			return nil
+		}
+		return []Event{{
+			AgentID:     ctx.AgentID,
+			AlertType:   AlertTypeMemoryHigh,
+			Severity:    SeverityWarning,
+			Message:     "Memory usage above threshold (sustained)",
+			CollectedAt: ctx.Snapshot.CollectedAt,
+			Details: map[string]any{
+				"usedMemory":      ctx.Snapshot.Payload.UsedMemory,
+				"totalMemory":     total,
+				"ratio":           ratio,
+				"avgRatio":        avg,
+				"sampleCount":     samples,
+				"sustainedWindow": ctx.SustainedWindow.String(),
+				"threshold":       th,
+			},
+		}}
+	}
 	if ratio <= th {
 		return nil
 	}
@@ -72,6 +124,20 @@ func (r *MemoryHighRule) Evaluate(ctx EvalContext) []Event {
 			"threshold":   th,
 		},
 	}}
+}
+
+func (r *MemoryHighRule) Cleared(ctx EvalContext) bool {
+	th := r.cfg.Thresholds().MemoryPercent
+	total := ctx.Snapshot.Payload.TotalMemory
+	if total <= 0 {
+		return true
+	}
+	if ctx.Sustained != nil && ctx.SustainedWindow > 0 {
+		avg, _, ok := ctx.Sustained.Avg(ctx.AgentID, sustainedMetricMemory, ctx.SustainedWindow, ctx.Now)
+		return ok && avg <= th
+	}
+	ratio := float64(ctx.Snapshot.Payload.UsedMemory) / float64(total)
+	return ratio <= th
 }
 
 type DiskHighRule struct {

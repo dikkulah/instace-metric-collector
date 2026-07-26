@@ -86,6 +86,31 @@ func (s *SilenceStore) Add(agentID, ruleID string, duration time.Duration) (Sile
 	return entry, s.persistLocked()
 }
 
+// Revoke removes a silence for agent+rule. Returns true if an entry was removed.
+func (s *SilenceStore) Revoke(agentID, ruleID string) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pruneLocked(time.Now().UTC())
+	kept := s.entries[:0]
+	removed := false
+	for _, e := range s.entries {
+		if e.AgentID == agentID && e.RuleID == ruleID {
+			removed = true
+			continue
+		}
+		kept = append(kept, e)
+	}
+	if !removed {
+		return false
+	}
+	s.entries = kept
+	_ = s.persistLocked()
+	return true
+}
+
 // IsSilenced reports whether notifications should be skipped for agent+rule.
 func (s *SilenceStore) IsSilenced(agentID, ruleID string) bool {
 	if s == nil {

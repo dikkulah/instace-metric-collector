@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDiagnostics } from '../../api/useDiagnostics'
@@ -5,6 +6,25 @@ import { useHubAgents } from '../../api/useHubAgents'
 import { DiagnosticPanel } from '../../components/DiagnosticPanel'
 import { EmptyState } from '../../components/EmptyState'
 import { PageShell } from '../../components/layout/PageShell'
+
+function ExportButton({ items }: { items: ReturnType<typeof useDiagnostics> }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  if (items.length === 0) return null
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(JSON.stringify(items, null, 2))
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 2000)
+      }}
+      className="px-3 py-1.5 rounded-md text-xs border border-outline-variant hover:bg-surface-high"
+    >
+      {copied ? t('diagnostics.exported') : t('diagnostics.export')}
+    </button>
+  )
+}
 
 function AgentDiagnosticsBlock({ agentId, hostname }: { agentId: string; hostname: string }) {
   const items = useDiagnostics(agentId)
@@ -28,7 +48,10 @@ function SingleAgentDiagnostics({ agentId }: { agentId: string }) {
 
   return (
     <PageShell title={t('diagnostics.pageTitle')} variant="scroll">
-      <p className="text-sm text-on-surface-variant -mt-2 mb-6">{t('diagnostics.subtitle')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 -mt-2 mb-6">
+        <p className="text-sm text-on-surface-variant">{t('diagnostics.subtitle')}</p>
+        <ExportButton items={items} />
+      </div>
       {agent && (
         <p className="text-sm text-on-surface-variant mb-4">
           {agent.hostname} <span className="mono text-xs">({agentId})</span>

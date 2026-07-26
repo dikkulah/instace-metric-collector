@@ -27,6 +27,8 @@ type Engine struct {
 	logger   *slog.Logger
 	stats    StatsRecorder
 	maxRetry int
+	sustained       *SustainedTracker
+	sustainedWindow time.Duration
 
 	queue chan Event
 
@@ -35,6 +37,8 @@ type Engine struct {
 
 	pendingMu sync.Mutex
 	pending   []Event
+
+	resolver OpenAlertResolver
 }
 
 func NewEngine(rules []Rule, notifier Notifier, cfg *ConfigStore, logger *slog.Logger) *Engine {
@@ -46,6 +50,28 @@ func NewEngine(rules []Rule, notifier Notifier, cfg *ConfigStore, logger *slog.L
 		maxRetry: defaultNotifyRetries,
 		lastSent: make(map[string]time.Time),
 		queue:    make(chan Event, defaultQueueSize),
+		sustained: NewSustainedTracker(),
+	}
+}
+
+// SetSustainedWindow configures avg-over-window alerting for CPU/memory (0 = instant).
+func (e *Engine) SetSustainedWindow(d time.Duration) {
+	if e != nil {
+		e.sustainedWindow = d
+	}
+}
+
+// SetNotifier replaces the outbound notifier (hot reload after notification config change).
+func (e *Engine) SetNotifier(n Notifier) {
+	if e != nil {
+		e.notifier = n
+	}
+}
+
+// SetResolver wires auto-resolve for cleared alert conditions (optional).
+func (e *Engine) SetResolver(r OpenAlertResolver) {
+	if e != nil {
+		e.resolver = r
 	}
 }
 
@@ -83,17 +109,34 @@ func (e *Engine) OnIngest(agentID, hostname string, snap payload.Snapshot) {
 	if e == nil || e.notifier == nil {
 		return
 	}
-	ctx := EvalContext{
-		AgentID:  agentID,
-		Hostname: hostname,
-		Snapshot: snap,
-		LastSeen: time.Now().UTC(),
+	now := time.Now().UTC()
+	if e.sustained != nil && e.sustainedWindow > 0 {
+		e.sustained.Record(agentID, sustainedMetricCPU, snap.Payload.CPULoad, now)
+		if snap.Payload.TotalMemory > 0 {
+			ratio := float64(snap.Payload.UsedMemory) / float64(snap.Payload.TotalMemory)
+			e.sustained.Record(agentID, sustainedMetricMemory, ratio, now)
+		}
 	}
+	ctx := EvalContext{
+		AgentID:         agentID,
+		Hostname:        hostname,
+		Snapshot:        snap,
+		LastSeen:        now,
+		Sustained:       e.sustained,
+		SustainedWindow: e.sustainedWindow,
+		Now:             now,
+	}
+	firing := make(map[string]bool)
 	for _, rule := range e.rules {
+		if _, ok := rule.(*AgentStaleRule); ok {
+			continue
+		}
 		for _, ev := range rule.Evaluate(ctx) {
+			firing[ev.AlertType] = true
 			e.enqueue(ev)
 		}
 	}
+	e.autoResolve(ctx, firing)
 }
 
 // RunStaleChecker periodically evaluates AGENT_STALE for agents that stopped pushing.
@@ -196,6 +239,59 @@ func (e *Engine) deliver(ev Event) {
 		e.stats.RecordAlertFailed()
 	}
 	e.recordPending(ev)
+}
+
+func (e *Engine) autoResolve(ctx EvalContext, firing map[string]bool) {
+	if e.resolver == nil {
+		return
+	}
+	if !firing[AlertTypeCPUHigh] && cpuHighCleared(e.rules, ctx) {
+		e.resolveCleared(ctx.AgentID, AlertTypeCPUHigh)
+	}
+	if !firing[AlertTypeMemoryHigh] && memoryHighCleared(e.rules, ctx) {
+		e.resolveCleared(ctx.AgentID, AlertTypeMemoryHigh)
+	}
+	if !firing[AlertTypeDiskHigh] {
+		e.resolveCleared(ctx.AgentID, AlertTypeDiskHigh)
+	}
+	if !firing[AlertTypeContainerExited] {
+		e.resolveCleared(ctx.AgentID, AlertTypeContainerExited)
+	}
+	if !firing[AlertTypeContainerUnhealthy] {
+		e.resolveCleared(ctx.AgentID, AlertTypeContainerUnhealthy)
+	}
+	e.resolveCleared(ctx.AgentID, AlertTypeAgentStale)
+}
+
+func (e *Engine) resolveCleared(agentID, alertType string) {
+	n, err := e.resolver.ResolveOpenAlerts(agentID, alertType)
+	if err != nil || n == 0 {
+		return
+	}
+	e.mu.Lock()
+	delete(e.lastSent, agentID+"|"+alertType)
+	e.mu.Unlock()
+	if e.logger != nil {
+		e.logger.Info("alert resolved", "agentId", agentID, "type", alertType, "count", n)
+	}
+}
+
+func cpuHighCleared(rules []Rule, ctx EvalContext) bool {
+	for _, rule := range rules {
+		if r, ok := rule.(*CPUHighRule); ok {
+			return r.Cleared(ctx)
+		}
+	}
+	return true
+}
+
+func memoryHighCleared(rules []Rule, ctx EvalContext) bool {
+	for _, rule := range rules {
+		if r, ok := rule.(*MemoryHighRule); ok {
+			return r.Cleared(ctx)
+		}
+	}
+	return true
 }
 
 func (e *Engine) recordPending(ev Event) {
