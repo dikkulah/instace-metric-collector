@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useHubConfig } from '../api/useHubConfig'
 import { useHubStats } from '../api/useHubStats'
+import { formatHistoryTime } from '../lib/historySeries'
 
 export function HubOpsPanel() {
   const { t } = useTranslation()
@@ -53,6 +54,28 @@ export function HubOpsPanel() {
             <div className="break-all">
               {t('hub.ops.historyDb')}: <span className="mono">{config.history.dbPath}</span>
             </div>
+          )}
+          {config.history.stats && config.history.stats.rawSampleCount > 0 && (
+            <>
+              <div>
+                {t('hub.ops.historySamples')}:{' '}
+                <span className="mono">{config.history.stats.rawSampleCount.toLocaleString()}</span>
+                {config.history.stats.hourlyRows > 0 && (
+                  <span className="text-on-surface-variant">
+                    {' '}
+                    · {t('hub.ops.historyHourlyRows', { count: config.history.stats.hourlyRows })}
+                  </span>
+                )}
+              </div>
+              {config.history.stats.oldestSample && config.history.stats.newestSample && (
+                <div>
+                  {t('hub.ops.historyDataSpan', {
+                    from: formatHistoryTime(config.history.stats.oldestSample),
+                    to: formatHistoryTime(config.history.stats.newestSample),
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -179,3 +179,28 @@ func TestGetInsight(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestStoreStats(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "stats.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	ts := time.Now().UTC().Format(time.RFC3339Nano)
+	if err := store.WriteSample("agent-1", payload.Snapshot{
+		CollectedAt: ts,
+		Payload:     payload.MetricsPayload{CPULoad: 10, UsedMemory: 1, TotalMemory: 2},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := store.Stats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.RawSampleCount != 1 || st.OldestSample != ts {
+		t.Fatalf("stats = %+v", st)
+	}
+}

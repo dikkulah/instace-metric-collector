@@ -138,7 +138,7 @@ METRICS_HISTORY_PROFILE=full
 METRICS_HISTORY_RETENTION_DAYS=30
 ```
 
-Local dev (`make dev-watch`, `make run-hub`) sets `METRICS_HISTORY_DB_PATH` to `<repo>/data/metrics-history.db` so history survives restarts regardless of process cwd. Without this, `metrics-history.db` relative to cwd creates duplicate DBs (e.g. repo root vs `go/`).
+Local dev (`make dev-watch`, `make run-hub`) sets `METRICS_HISTORY_DB_PATH` to `<repo>/data/metrics-history.db` so history survives restarts regardless of process cwd. Without this, `metrics-history.db` relative to cwd creates duplicate DBs (e.g. repo root vs `go/`). Merge legacy files: `bash tool/merge_history_dbs.sh`.
 
 API: `GET /api/v1/agents/{id}/history?from=&to=&limit=` (SQLite when `from`/`to` set)
 

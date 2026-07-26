@@ -506,3 +506,36 @@ func (s *Store) SaveSetting(key string, value any) error {
 	)
 	return err
 }
+
+// StoreStats summarizes Tier-0 history for hub ops UI.
+type StoreStats struct {
+	RawSampleCount int    `json:"rawSampleCount"`
+	OldestSample   string `json:"oldestSample,omitempty"`
+	NewestSample   string `json:"newestSample,omitempty"`
+	HourlyRows     int    `json:"hourlyRows"`
+}
+
+// Stats returns aggregate counts for the history SQLite store.
+func (s *Store) Stats() (StoreStats, error) {
+	if s == nil || s.db == nil {
+		return StoreStats{}, nil
+	}
+	var st StoreStats
+	var oldest, newest sql.NullString
+	err := s.db.QueryRow(`SELECT COUNT(*), MIN(collected_at), MAX(collected_at) FROM raw_samples`).Scan(
+		&st.RawSampleCount, &oldest, &newest,
+	)
+	if err != nil {
+		return st, err
+	}
+	if oldest.Valid {
+		st.OldestSample = oldest.String
+	}
+	if newest.Valid {
+		st.NewestSample = newest.String
+	}
+	if err := s.ensureRollupSchema(); err == nil {
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM hourly_rollup`).Scan(&st.HourlyRows)
+	}
+	return st, nil
+}

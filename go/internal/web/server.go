@@ -406,6 +406,17 @@ func (s *Server) handleHubConfig(w http.ResponseWriter, r *http.Request) {
 	if s.deps.AlertConfig != nil {
 		sustainedMs = int(s.deps.AlertConfig.SustainedWindow().Milliseconds())
 	}
+	historyBlock := map[string]any{
+		"enabled":       s.deps.History != nil,
+		"profile":       s.deps.Config.HistoryProfile,
+		"retentionDays": s.deps.Config.HistoryRetentionDays,
+		"dbPath":        s.deps.Config.HistoryDBPath,
+	}
+	if s.deps.History != nil {
+		if stats, err := s.deps.History.Stats(); err == nil {
+			historyBlock["stats"] = stats
+		}
+	}
 	writeJSON(w, map[string]any{
 		"historySize":          120,
 		"version":              version,
@@ -413,12 +424,7 @@ func (s *Server) handleHubConfig(w http.ResponseWriter, r *http.Request) {
 		"staleAfterMs":         staleAfterMs,
 		"offlineAfterMs":       offlineAfterMs,
 		"sustainedAfterMs":     sustainedMs,
-		"history": map[string]any{
-			"enabled":       s.deps.History != nil,
-			"profile":       s.deps.Config.HistoryProfile,
-			"retentionDays": s.deps.Config.HistoryRetentionDays,
-			"dbPath":        s.deps.Config.HistoryDBPath,
-		},
+		"history":              historyBlock,
 	})
 }
 

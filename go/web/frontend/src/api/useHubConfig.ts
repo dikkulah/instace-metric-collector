@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react'
 import { apiGet } from './client'
 
+export interface HubHistoryStats {
+  rawSampleCount: number
+  oldestSample?: string
+  newestSample?: string
+  hourlyRows: number
+}
+
 export interface HubHistoryConfig {
   enabled: boolean
   profile: string
   retentionDays: number
   dbPath?: string
+  stats?: HubHistoryStats
 }
 
 export interface HubConfig {
