@@ -106,7 +106,8 @@ G6 (release) → G7b (rollup) → P10 (historic UI) → P11 (alerts) → P12 (di
 
 | Beszel özelliği | Karar |
 |-----------------|--------|
-| Historic charts | **Evet** — P10 |
+| Historic charts | **Evet** — P10 ✅ |
+| Alert ACK | **Evet** — P11 (partial) |
 | Bildirim kanalları (3 adet) | **Evet** — P11 |
 | OAuth/multi-user | Sonra — MVP-3 |
 | GPU / S.M.A.R.T. | Sonra / hayır (kurulum karmaşıklığı) |
@@ -134,9 +135,9 @@ G6 (release) → G7b (rollup) → P10 (historic UI) → P11 (alerts) → P12 (di
 | T3 | Ingest token doğrulaması | G6 | ✅ (zaten vardı + test genişletildi) |
 | T4 | History hourly rollup | G7b | ✅ |
 | T5 | History API `resolution` param | G7b | ✅ |
-| T6 | UI Live \| History toggle | P10 | Sırada |
-| T7 | Alert ACK endpoint + UI | P11 |
-| T8 | Doküman senkron (PRODUCT_SPEC, G6 tablosu) | — |
+| T6 | UI Live \| History toggle | P10 | ✅ |
+| T7 | Alert ACK endpoint + UI | P11 | ✅ |
+| T8 | Doküman senkron (PRODUCT_SPEC, G6 tablosu) | — | ✅ |
 
 ---
 

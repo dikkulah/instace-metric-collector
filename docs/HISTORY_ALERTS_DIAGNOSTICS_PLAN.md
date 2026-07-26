@@ -172,12 +172,12 @@ Historic store Go hub’da (`internal/history/`) implement edilir; Java’da min
 
 ### Exit criteria (gate taslağı)
 
-- [ ] ADR-009: storage schema + retention + **full-payload-first** ilkesi
-- [ ] Hub persist ingest — Tier 0 tam `MetricsPayload` JSON
-- [ ] Retention + rollup (Tier 1/2) + `metrics.history.profile`
-- [ ] History API + downsampling (özet seriler; drill-down raw’dan)
-- [ ] Dashboard + hub historic UI
-- [ ] `make ci-fast` + migration smoke + disk boyutu doc
+- [x] ADR-012: storage schema + retention + **full-payload-first** ilkesi
+- [x] Hub persist ingest — Tier 0 tam `MetricsPayload` JSON
+- [x] Retention + rollup (Tier 1 hourly) + `metrics.history.profile`
+- [x] History API + downsampling (`resolution=raw|hourly`)
+- [x] Dashboard + hub historic UI (Live \| History)
+- [x] `make ci-fast` + migration smoke
 - [ ] (10b) Normalized `process_samples` / `service_samples` / `container_samples`
 
 ### Council notları
@@ -229,12 +229,14 @@ rules:
 
 ### Exit criteria
 
-- [ ] ADR-009: alert model + severity
-- [ ] Rule config (properties veya hub REST)
-- [ ] Alert store + REST API
+- [x] ADR-011: alert model + severity
+- [x] Rule config (hub REST `alert-config`)
+- [x] Alert store + REST API (`GET /api/v1/alerts`)
+- [x] `POST /api/v1/alerts/{id}/ack`
 - [ ] Webhook payload v2 (backward compatible alanlar)
-- [ ] Alert UI + i18n
-- [ ] Unit test: rule evaluation, dedup
+- [x] Alert UI + i18n (liste + ACK)
+- [x] Unit test: rule evaluation, dedup
+- [ ] Silence window + ek kanallar (Slack/Discord/email)
 
 ### Mevcut `AlertService` ile ilişki
 

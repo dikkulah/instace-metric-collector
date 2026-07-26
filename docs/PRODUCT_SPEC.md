@@ -1,8 +1,8 @@
-# Ürün Spec — instance-metric-collector MVP
+# Ürün Spec — instance-metric-collector (Outpost)
 
-Pazar analizi çıktısı. Hedef: **Spring-native, self-hosted host + Docker izleme** — 1–20 sunuculu küçük ekipler ve Java shop'lar.
+Pazar analizi çıktısı. **Runtime:** Go agent + hub (ADR-009; Java kaldırıldı). Hedef: **self-hosted host + Docker izleme** — 1–20 sunuculu küçük ekipler, homelab ve MSP.
 
-**Konumlandırma:** Beszel/Netdata ile kafa kafaya değil; *“JVM biliyorsan özelleştirebileceğin, tek JAR, cross-platform agent + hub”*.
+**Konumlandırma (Jul 2026):** Beszel/Netdata ile kafa kafaya değil; *“süreç + servis + diagnostics + hub history ile özelleştirilebilir, tek binary, cross-platform agent + hub”*. Çalışma adı: **Outpost** (`outpost-agent` / `outpost-hub`). Detay: [`COMPETITIVE_PLAN.md`](COMPETITIVE_PLAN.md).
 
 ---
 
@@ -11,22 +11,22 @@ Pazar analizi çıktısı. Hedef: **Spring-native, self-hosted host + Docker izl
 | Kim | Sorun |
 |-----|-------|
 | Küçük ekip / homelab | Prometheus+Grafana kurmak saatler sürüyor |
-| Java/Spring shop | Go tabanlı agent'lara müdahale etmek zor |
 | Docker Compose kullanan | Container + host birlikte görülmek isteniyor |
 | Self-hosted tercih eden | SaaS monitoring maliyeti ve veri lokasyonu endişesi |
+| MSP / çoklu host | Merkezi hub + geçmiş + alarm yaşam döngüsü gerekir |
 
-## Çözüm (MVP sonrası vizyon)
+## Çözüm (güncel mimari)
 
 ```
-┌─────────────┐     HTTPS/JSON      ┌──────────────┐
-│ Agent (JAR) │ ──────────────────► │ Hub (JAR)    │
-│ per host    │   push + heartbeat  │ + Dashboard  │
-└─────────────┘                     └──────────────┘
-       │                                    │
-       └── local dashboard (opsiyonel)      └── alert → Slack/webhook
+┌──────────────────┐     HTTPS/JSON      ┌──────────────────┐
+│ outpost-agent    │ ──────────────────► │ outpost-hub      │
+│ per host         │   push + heartbeat  │ + React dashboard│
+└──────────────────┘                     └──────────────────┘
+       │                                          │
+       └── local dashboard (opsiyonel)            └── history SQLite + alerts + diagnostics
 ```
 
-MVP önce **tek host + local dashboard**; hub çoklu host için Phase 2b.
+MVP-1: **tek host + local dashboard**. Hub çoklu host (M6) ve geçmiş/alarmlar (G5–G7, P10–P12) tamamlandı veya devam ediyor — bkz. [`GO_REWRITE_PLAN.md`](GO_REWRITE_PLAN.md).
 
 ---
 
@@ -39,8 +39,8 @@ Detaylı persona ve senaryolar: [`MARKET_SCENARIOS.md`](MARKET_SCENARIOS.md)
 | Segment | Özet |
 |---------|------|
 | Homelab / self-hoster | 1–5 VPS, Grafana istemeyen |
-| Java / Spring shop | Internal monitoring, JVM stack |
 | Docker Compose ekipleri | Host + container birlikte |
+| Küçük MSP / ajans | Hub + history + alert ACK |
 
 ### İkincil (MVP-2+)
 
@@ -77,12 +77,11 @@ Detaylı persona ve senaryolar: [`MARKET_SCENARIOS.md`](MARKET_SCENARIOS.md)
 
 | Özellik | Neden ertelendi |
 |---------|-----------------|
-| Multi-host hub | MVP-2 |
-| Alert / webhook | MVP-2 |
 | OAuth / multi-user | Pro |
 | Prometheus exporter | Entegrasyon fazı |
-| Uzun süreli TSDB | Scope dışı |
-| Windows production polish | Linux önce |
+| Uzun süreli TSDB (Prometheus uyumlu) | Scope dışı; hub SQLite yeterli MVP için |
+| Windows production polish | Linux/macOS önce |
+| AI diagnostics | MVP-4+ (kural tabanlı P12 önce) |
 
 ---
 
@@ -159,17 +158,17 @@ Phase 2 HTTP push bu ingest API'ye evrilir.
 
 ---
 
-## MVP-2.5 (sıradaki — planlama onaylı, implementasyon bekliyor)
+## MVP-2.5 (Jul 2026 — kısmen tamamlandı)
 
 Geçmiş analiz, gelişmiş alarmlar ve tanı. Detay: [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md)
 
-| # | Özellik | Değer | Faz |
+| # | Özellik | Durum | Faz |
 |---|---------|-------|-----|
-| M20 | Kalıcı hub history + Historic UI modu | “Dün gece ne oldu?” | Phase 10 |
-| M21 | Alert platformu (kurallar, geçmiş, UI) | MSP operasyon | Phase 11 |
-| M22 | Diagnostics (insight + runbook önerileri) | L1 destek hızı | Phase 12 |
+| M20 | Kalıcı hub history + Historic UI (Live \| History) | ✅ P10 | Phase 10 |
+| M21 | Alert platformu (kurallar, geçmiş, ACK UI) | ⚠️ ACK + liste; silence/kanallar sırada | Phase 11 |
+| M22 | Diagnostics (insight + runbook önerileri) | ✅ kural motoru + UI | Phase 12 |
 
-**Mevcut MVP-2 tamamlandı:** M6 hub, M7 webhook alert, M8 disk/network UI.
+**MVP-2 tamamlandı:** M6 hub, M7 webhook alert, M8 disk/network UI, G6 release/install script.
 
 ---
 
