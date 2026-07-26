@@ -30,7 +30,6 @@ test.describe('Container metrics', () => {
     const main = page.locator('main')
     await expect(main).toHaveScreenshot('container-metrics-overview.png', {
       mask: [liveIndicator(page)],
-      maxDiffPixelRatio: 0.03,
     })
   })
 })

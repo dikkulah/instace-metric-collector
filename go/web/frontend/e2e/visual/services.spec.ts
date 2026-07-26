@@ -23,7 +23,6 @@ test.describe('Services master-detail', () => {
     const main = page.locator('main')
     await expect(main).toHaveScreenshot('services-split.png', {
       mask: [liveIndicator(page)],
-      maxDiffPixelRatio: 0.03,
     })
   })
 })

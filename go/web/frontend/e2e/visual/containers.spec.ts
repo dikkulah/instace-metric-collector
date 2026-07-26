@@ -19,7 +19,6 @@ test.describe('Containers desktop', () => {
     const main = page.locator('main')
     await expect(main).toHaveScreenshot('containers-desktop.png', {
       mask: [liveIndicator(page)],
-      maxDiffPixelRatio: 0.03,
     })
   })
 })

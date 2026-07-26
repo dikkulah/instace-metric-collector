@@ -23,7 +23,6 @@ test.describe('Processes master-detail', () => {
     const main = page.locator('main')
     await expect(main).toHaveScreenshot('processes-split.png', {
       mask: [liveIndicator(page)],
-      maxDiffPixelRatio: 0.03,
     })
   })
 })
