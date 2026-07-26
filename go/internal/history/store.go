@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,17 @@ import (
 
 	"github.com/dikkulah/instance-metric-collector/go/internal/alert"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
+)
+
+const (
+	AlertStatusOpen     = "OPEN"
+	AlertStatusAck      = "ACK"
+	AlertStatusResolved = "RESOLVED"
+)
+
+var (
+	ErrAlertNotFound   = errors.New("alert not found")
+	ErrAlertNotAckable = errors.New("alert cannot be acknowledged")
 )
 
 const schema = `
@@ -209,6 +221,35 @@ func (s *Store) ListAlerts(agentID string, limit int) ([]AlertRecord, error) {
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// AcknowledgeAlert transitions an OPEN alert to ACK.
+func (s *Store) AcknowledgeAlert(id string) (AlertRecord, error) {
+	if s == nil {
+		return AlertRecord{}, ErrAlertNotFound
+	}
+	var r AlertRecord
+	var details string
+	err := s.db.QueryRow(`
+		SELECT id, agent_id, rule_id, severity, status, fired_at, details_json
+		FROM alert_events WHERE id = ?`, id).Scan(
+		&r.ID, &r.AgentID, &r.RuleID, &r.Severity, &r.Status, &r.FiredAt, &details,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return AlertRecord{}, ErrAlertNotFound
+	}
+	if err != nil {
+		return AlertRecord{}, err
+	}
+	if r.Status != AlertStatusOpen {
+		return AlertRecord{}, ErrAlertNotAckable
+	}
+	if _, err := s.db.Exec(`UPDATE alert_events SET status = ? WHERE id = ?`, AlertStatusAck, id); err != nil {
+		return AlertRecord{}, err
+	}
+	r.Status = AlertStatusAck
+	_ = json.Unmarshal([]byte(details), &r.Details)
+	return r, nil
 }
 
 type AlertRecord struct {

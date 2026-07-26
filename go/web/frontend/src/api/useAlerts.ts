@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { apiGet } from './client'
+import { useCallback, useEffect, useState } from 'react'
+import { apiGet, apiPost } from './client'
 
 export interface AlertRecord {
   id: string
@@ -11,20 +11,39 @@ export interface AlertRecord {
   details: Record<string, unknown>
 }
 
+export function ackAlert(id: string): Promise<AlertRecord> {
+  return apiPost<AlertRecord>(`/api/v1/alerts/${encodeURIComponent(id)}/ack`)
+}
+
 export function useAlerts(agentId?: string) {
   const [alerts, setAlerts] = useState<AlertRecord[]>([])
+  const [ackingId, setAckingId] = useState<string | null>(null)
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     const q = agentId ? `?agentId=${encodeURIComponent(agentId)}` : ''
-    const load = () => {
-      apiGet<AlertRecord[]>(`/api/v1/alerts${q}`)
-        .then((data) => setAlerts(data ?? []))
-        .catch(() => setAlerts([]))
-    }
-    load()
-    const id = window.setInterval(load, 10000)
-    return () => window.clearInterval(id)
+    return apiGet<AlertRecord[]>(`/api/v1/alerts${q}`)
+      .then((data) => setAlerts(data ?? []))
+      .catch(() => setAlerts([]))
   }, [agentId])
 
-  return alerts
+  useEffect(() => {
+    void reload()
+    const id = window.setInterval(() => void reload(), 10_000)
+    return () => window.clearInterval(id)
+  }, [reload])
+
+  const acknowledge = useCallback(
+    async (id: string) => {
+      setAckingId(id)
+      try {
+        const updated = await ackAlert(id)
+        setAlerts((prev) => prev.map((a) => (a.id === id ? updated : a)))
+      } finally {
+        setAckingId(null)
+      }
+    },
+    [],
+  )
+
+  return { alerts, acknowledge, ackingId, reload }
 }

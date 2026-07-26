@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -74,7 +75,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/hub/config", s.handleHubConfig)
 	mux.HandleFunc("/api/v1/hub/alert-config", s.handleHubAlertConfig)
 	mux.HandleFunc("/api/v1/hub/stats", s.handleHubStats)
-	mux.HandleFunc("/api/v1/alerts", s.handleAlerts)
+	mux.HandleFunc("/api/v1/alerts", s.handleAlertRoutes)
+	mux.HandleFunc("/api/v1/alerts/", s.handleAlertRoutes)
 
 	static := webui.Handler()
 	mux.Handle("/", spaHandler(static))
@@ -420,7 +422,22 @@ func (s *Server) handleHubStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, snap)
 }
 
-func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAlertRoutes(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/alerts")
+	path = strings.Trim(path, "/")
+	if path == "" {
+		s.handleAlertsList(w, r)
+		return
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) == 2 && parts[1] == "ack" {
+		s.handleAlertAck(w, r, parts[0])
+		return
+	}
+	http.NotFound(w, r)
+}
+
+func (s *Server) handleAlertsList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -437,6 +454,31 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, records)
+}
+
+func (s *Server) handleAlertAck(w http.ResponseWriter, r *http.Request, alertID string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.deps.History == nil {
+		http.Error(w, "history unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	record, err := s.deps.History.AcknowledgeAlert(alertID)
+	if errors.Is(err, history.ErrAlertNotFound) {
+		http.Error(w, "alert not found", http.StatusNotFound)
+		return
+	}
+	if errors.Is(err, history.ErrAlertNotAckable) {
+		http.Error(w, "alert cannot be acknowledged", http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, "ack error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, record)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
