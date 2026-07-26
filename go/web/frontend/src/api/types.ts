@@ -66,7 +66,9 @@ export interface MetricsSnapshot {
 export interface AgentSummary {
   agentId: string
   hostname: string
+  firstSeen?: string
   lastSeen: string
+  status?: 'live' | 'stale' | 'offline'
   cpuLoad: number
   usedMemory: number
   totalMemory: number

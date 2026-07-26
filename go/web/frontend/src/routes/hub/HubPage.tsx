@@ -2,11 +2,18 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useHubAgents } from '../../api/useHubAgents'
-import { useHubConfig } from '../../api/useHubConfig'
 import { HubAlertSettings } from './HubAlertSettings'
+import { PillTabs } from '../../components/PillTabs'
 import { SearchInput } from '../../components/SearchInput'
 import { StatusPill } from '../../components/StatusPill'
 import { PageShell } from '../../components/layout/PageShell'
+import {
+  agentStatusLabel,
+  agentStatusTone,
+  isAgentOffline,
+  matchesAgentFilter,
+  type AgentListFilter,
+} from '../../lib/agentStatus'
 import { formatBytes, formatPercent } from '../../lib/format'
 
 function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -27,16 +34,17 @@ function barTone(percent: number): string {
 export function HubPage() {
   const { t } = useTranslation()
   const agents = useHubAgents()
-  const hubConfig = useHubConfig()
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<AgentListFilter>('all')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return agents
-    return agents.filter(
-      (a) => a.hostname.toLowerCase().includes(q) || a.agentId.toLowerCase().includes(q),
-    )
-  }, [agents, search])
+    return agents.filter((a) => {
+      if (!matchesAgentFilter(a.status, filter)) return false
+      if (!q) return true
+      return a.hostname.toLowerCase().includes(q) || a.agentId.toLowerCase().includes(q)
+    })
+  }, [agents, search, filter])
 
   return (
     <PageShell variant="scroll">
@@ -47,6 +55,15 @@ export function HubPage() {
         </div>
       </div>
       <HubAlertSettings />
+      <PillTabs
+        tabs={[
+          { id: 'all' as AgentListFilter, label: t('hub.filter.all') },
+          { id: 'live' as AgentListFilter, label: t('hub.filter.live') },
+          { id: 'offline' as AgentListFilter, label: t('hub.filter.offline') },
+        ]}
+        active={filter}
+        onChange={setFilter}
+      />
       {filtered.length === 0 ? (
         <div className="panel p-12 text-center text-on-surface-variant text-sm min-h-[16rem] flex items-center justify-center">
           {t('hub.noAgents')}
@@ -55,20 +72,19 @@ export function HubPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((a) => {
             const memPct = a.totalMemory > 0 ? (a.usedMemory / a.totalMemory) * 100 : 0
-            const staleMs = hubConfig.staleAfterMs || 120000
-            const stale = Date.now() - new Date(a.lastSeen).getTime() > staleMs
+            const offline = isAgentOffline(a.status)
             return (
               <Link
                 key={a.agentId}
                 to={`/hub/agents/${encodeURIComponent(a.agentId)}`}
-                className={`panel p-4 space-y-3 block hover:bg-surface-high transition-colors ${stale ? 'opacity-75' : ''}`}
+                className={`panel p-4 space-y-3 block hover:bg-surface-high transition-colors ${offline ? 'opacity-75' : ''}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-semibold">{a.hostname}</div>
                   <StatusPill
-                    label={stale ? t('hub.stale') : t('app.live')}
-                    tone={stale ? 'warning' : 'success'}
-                    pulse={!stale}
+                    label={agentStatusLabel(a.status, t)}
+                    tone={agentStatusTone(a.status)}
+                    pulse={a.status === 'live'}
                   />
                 </div>
                 <div className="mono text-xs text-on-surface-variant">{a.agentId}</div>

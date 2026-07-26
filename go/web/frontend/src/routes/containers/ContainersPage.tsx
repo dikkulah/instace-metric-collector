@@ -12,7 +12,8 @@ import { DefinitionList } from '../../components/DefinitionList'
 import { MetricCard } from '../../components/MetricCard'
 import { SearchInput } from '../../components/SearchInput'
 import { MetricsContext } from '../../context/MetricsContext'
-import { PageShell } from '../../components/layout/PageShell'
+import { HistoryWorkbench } from '../../components/HistoryWorkbench'
+import { useHistoryView } from '../../context/HistoryViewContext'
 import { MasterDetailLayout } from '../../components/layout/MasterDetailLayout'
 import { ScrollPane } from '../../components/layout/ScrollPane'
 import type { ContainerInfo } from '../../api/types'
@@ -224,6 +225,20 @@ function ContainerDetail({
 
 export function ContainersPage() {
   const { t } = useTranslation()
+  const { viewMode } = useHistoryView()
+  const { snapshot } = useMetricsContext()
+  const historyMode = viewMode === 'history'
+  if (!historyMode && !snapshot) return <EmptyState message={t('app.waiting')} />
+
+  return (
+    <HistoryWorkbench title={t('containers.pageTitle')} variant="workbench">
+      <ContainersWorkbench />
+    </HistoryWorkbench>
+  )
+}
+
+function ContainersWorkbench() {
+  const { t } = useTranslation()
   const { snapshot } = useMetricsContext()
   const [searchParams] = useSearchParams()
   const initialId = searchParams.get('id')
@@ -249,7 +264,7 @@ export function ContainersPage() {
     }
   }
 
-  if (!snapshot) return <EmptyState message={t('app.waiting')} />
+  if (!snapshot) return null
 
   const master = (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
@@ -293,7 +308,7 @@ export function ContainersPage() {
   )
 
   return (
-    <PageShell title={t('containers.pageTitle')} variant="workbench">
+    <>
       <div className="h-full min-h-0 lg:hidden">
         {mobileDetail && selected ? (
           <div className="h-full min-h-0 overflow-hidden">{detail}</div>
@@ -304,6 +319,6 @@ export function ContainersPage() {
       <div className="hidden lg:block h-full min-h-0">
         <MasterDetailLayout surface="page" masterRatio="55/45" master={master} detail={detail} />
       </div>
-    </PageShell>
+    </>
   )
 }
