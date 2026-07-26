@@ -14,9 +14,13 @@ import (
 type recordingNotifier struct {
 	mu     sync.Mutex
 	events []Event
+	fail   bool
 }
 
 func (r *recordingNotifier) Notify(_ context.Context, ev Event) error {
+	if r.fail {
+		return io.ErrUnexpectedEOF
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.events = append(r.events, ev)
@@ -142,6 +146,29 @@ func TestEngineCooldownDedup(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if len(rec.snapshot()) != 1 {
 		t.Fatalf("expected 1 alert after dedup, got %d", len(rec.snapshot()))
+	}
+}
+
+func TestEngineSilenceSkipsNotify(t *testing.T) {
+	rec := &recordingNotifier{}
+	cfg := testConfig(50, 90, 90)
+	silences := LoadSilenceStore(nil)
+	if _, err := silences.Add("a1", AlertTypeCPUHigh, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	engine := NewEngine(DefaultRules(cfg), rec, cfg, testLogger())
+	engine.SetSilences(silences)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go engine.Run(ctx)
+
+	engine.OnIngest("a1", "host", payload.Snapshot{
+		CollectedAt: "t",
+		Payload:     payload.MetricsPayload{CPULoad: 99},
+	})
+	time.Sleep(100 * time.Millisecond)
+	if len(rec.snapshot()) != 0 {
+		t.Fatalf("expected no notify while silenced, got %d", len(rec.snapshot()))
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -48,7 +49,7 @@ func TestClientSendSuccess(t *testing.T) {
 		Hostname:   "host-01",
 		AuthToken:  "secret",
 		MaxRetries: 1,
-	}, testLogger())
+	}, nil, testLogger())
 
 	snap := testSnapshot()
 	if err := c.send(context.Background(), snap); err != nil {
@@ -74,9 +75,11 @@ func TestClientPermanentErrorNoRetry(t *testing.T) {
 		IngestURL:  srv.URL,
 		AgentID:    "agent-01",
 		MaxRetries: 3,
-	}, testLogger())
+	}, nil, testLogger())
 
-	c.sendWithRetry(context.Background(), testSnapshot())
+	if err := c.sendBatch(context.Background(), testSnapshot()); err == nil {
+		t.Fatal("expected permanent failure")
+	}
 	if calls.Load() != 1 {
 		t.Fatalf("calls = %d, want 1 (no retry on 4xx)", calls.Load())
 	}
@@ -98,19 +101,28 @@ func TestClientRetriesOn5xx(t *testing.T) {
 		IngestURL:  srv.URL,
 		AgentID:    "agent-01",
 		MaxRetries: 3,
-	}, testLogger())
+	}, nil, testLogger())
 
-	c.sendWithRetry(context.Background(), testSnapshot())
+	if err := c.sendBatch(context.Background(), testSnapshot()); err != nil {
+		t.Fatalf("expected success after retries: %v", err)
+	}
 	if calls.Load() != 3 {
 		t.Fatalf("calls = %d, want 3", calls.Load())
 	}
 }
 
-func TestEnqueueDropOldest(t *testing.T) {
+func TestEnqueueOverflowSpillsToSpool(t *testing.T) {
+	dir := t.TempDir()
+	spool, err := OpenSpool(filepath.Join(dir, "spool.db"), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spool.Close()
+
 	c := NewClient(Options{
 		IngestURL: "http://example.invalid",
 		QueueSize: 2,
-	}, testLogger())
+	}, spool, testLogger())
 
 	s1 := payload.Snapshot{CollectedAt: "t1"}
 	s2 := payload.Snapshot{CollectedAt: "t2"}
@@ -126,8 +138,109 @@ func TestEnqueueDropOldest(t *testing.T) {
 	first := <-c.queue
 	second := <-c.queue
 	if first.CollectedAt != "t2" || second.CollectedAt != "t3" {
-		t.Fatalf("drop-oldest failed: got %q then %q", first.CollectedAt, second.CollectedAt)
+		t.Fatalf("overflow failed: got %q then %q", first.CollectedAt, second.CollectedAt)
 	}
+	n, err := spool.Len()
+	if err != nil || n != 1 {
+		t.Fatalf("spool len = %d err=%v, want 1 (t1 spooled)", n, err)
+	}
+	_, env, ok, err := spool.Peek()
+	if err != nil || !ok || env.Snapshot.CollectedAt != "t1" {
+		t.Fatalf("spooled snapshot = %+v ok=%v err=%v", env, ok, err)
+	}
+}
+
+func TestHubDownKeepsSnapshotInQueueNotSpool(t *testing.T) {
+	dir := t.TempDir()
+	spool, err := OpenSpool(filepath.Join(dir, "spool.db"), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spool.Close()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	c := NewClient(Options{
+		IngestURL:    srv.URL,
+		AgentID:      "agent-01",
+		MaxRetries:   1,
+		QueueSize:    8,
+		HubRetryTick: 50 * time.Millisecond,
+	}, spool, testLogger())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go c.Run(ctx)
+
+	c.Enqueue(payload.Snapshot{CollectedAt: "t1"})
+	time.Sleep(120 * time.Millisecond)
+
+	n, err := spool.Len()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("hub down should keep data in queue, spool len = %d", n)
+	}
+	if len(c.queue) != 0 {
+		t.Fatalf("expected worker to hold queue item, queue len = %d", len(c.queue))
+	}
+}
+
+func TestSpoolDrainOnRecovery(t *testing.T) {
+	dir := t.TempDir()
+	spool, err := OpenSpool(filepath.Join(dir, "spool.db"), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spool.Close()
+
+	env := envelope{
+		AgentID:  "agent-01",
+		Hostname: "host",
+		Snapshot: payload.Snapshot{CollectedAt: "overflow"},
+	}
+	if err := spool.Put(env); err != nil {
+		t.Fatal(err)
+	}
+
+	var up atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !up.Load() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	c := NewClient(Options{
+		IngestURL:    srv.URL,
+		AgentID:      "agent-01",
+		MaxRetries:   1,
+		HubRetryTick: 25 * time.Millisecond,
+	}, spool, testLogger())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go c.Run(ctx)
+
+	up.Store(true)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		n, err := spool.Len()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			return
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	t.Fatal("spool overflow not drained after hub recovery")
 }
 
 func TestBackoffCapped(t *testing.T) {

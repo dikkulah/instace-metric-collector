@@ -64,6 +64,7 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 	var histStore *history.Store
 	var alertCfg *alert.ConfigStore
 	var alertEngine *alert.Engine
+	var silenceStore *alert.SilenceStore
 	var diagEngine *diagnostic.Engine
 
 	if mode == appmode.Hub {
@@ -89,6 +90,9 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 							if err := histStore.RunHourlyRollup(ctx); err != nil {
 								logger.Warn("hourly rollup failed", "err", err)
 							}
+							if err := histStore.RunDailyRollup(ctx); err != nil {
+								logger.Warn("daily rollup failed", "err", err)
+							}
 						case <-retentionTicker.C:
 							if err := histStore.RunRetention(ctx); err != nil {
 								logger.Warn("history retention failed", "err", err)
@@ -100,19 +104,35 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		}
 
 		alertCfg = alert.LoadConfigStore(cfg, histStore)
+		silenceStore = alert.LoadSilenceStore(histStore)
 		diagEngine = diagnostic.NewEngine(histStore, alertCfg)
 
-		if cfg.AlertsWebhookURL != "" {
-			base := alert.NewWebhookNotifier(cfg.AlertsWebhookURL, 5*time.Second)
-			var notifier alert.Notifier = base
+		if histStore != nil {
+			if catalog, err := histStore.ListKnownAgents(); err != nil {
+				logger.Warn("agent catalog load failed", "err", err)
+			} else if len(catalog) > 0 {
+				staleAfter := alertCfg.StaleAfter(cfg.MetricsCollectionPeriod)
+				offlineAfter := cfg.HubOfflineAfter
+				if offlineAfter <= 0 {
+					offlineAfter = 24 * time.Hour
+				}
+				registry.Hydrate(hub.SummariesFromCatalog(catalog, staleAfter, offlineAfter))
+				logger.Info("agent catalog hydrated", "count", len(catalog))
+			}
+		}
+
+		if alert.AlertsEnabled(cfg) {
+			inner := alert.ComposeNotifiers(cfg)
+			var notifier alert.Notifier = inner
 			if histStore != nil {
-				notifier = alert.NewPersistingNotifier(base, func(ev alert.Event) {
+				notifier = alert.NewPersistingNotifier(inner, func(ev alert.Event) {
 					_ = histStore.SaveAlertEvent(ev, "OPEN")
 				})
 			}
 			rules := alert.DefaultRules(alertCfg)
 			alertEngine = alert.NewEngine(rules, notifier, alertCfg, logger)
 			alertEngine.SetStats(hubStats)
+			alertEngine.SetSilences(silenceStore)
 			go alertEngine.Run(ctx)
 			go alertEngine.RunStaleChecker(ctx, cfg.MetricsCollectionPeriod, cfg.MetricsCollectionPeriod, func() []alert.AgentSeen {
 				seen := registry.ListAgentSeen()
@@ -122,11 +142,15 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				}
 				return out
 			})
-			logger.Info("alert engine enabled", "webhook", cfg.AlertsWebhookURL)
+			logger.Info("alert engine enabled",
+				"webhook", cfg.AlertsWebhookURL != "",
+				"slack", cfg.AlertsSlackWebhookURL != "",
+			)
 		}
 	}
 
 	var pushClient *push.Client
+	var pushSpool *push.Spool
 	if mode == appmode.Agent && cfg.MetricsPushEnabled {
 		if cfg.MetricsPushIngestURL == "" {
 			logger.Error("METRICS_PUSH_ENABLED but METRICS_PUSH_INGEST_URL is empty; push disabled")
@@ -136,6 +160,17 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				agentID, _ = os.Hostname()
 			}
 			hostname, _ := os.Hostname()
+			if cfg.MetricsPushSpoolPath != "" {
+				var err error
+				pushSpool, err = push.OpenSpool(cfg.MetricsPushSpoolPath, cfg.MetricsPushSpoolMax)
+				if err != nil {
+					logger.Warn("push spool unavailable", "path", cfg.MetricsPushSpoolPath, "err", err)
+				} else {
+					if pending, err := pushSpool.Len(); err == nil && pending > 0 {
+						logger.Info("push spool pending", "count", pending, "path", cfg.MetricsPushSpoolPath)
+					}
+				}
+			}
 			pushClient = push.NewClient(push.Options{
 				IngestURL:  cfg.MetricsPushIngestURL,
 				AgentID:    agentID,
@@ -143,9 +178,13 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				AuthToken:  cfg.MetricsPushAuthToken,
 				Timeout:    cfg.MetricsPushTimeout,
 				MaxRetries: cfg.MetricsPushMaxRetries,
-			}, logger)
+			}, pushSpool, logger)
 			go pushClient.Run(ctx)
-			logger.Info("push client enabled", "ingest_url", cfg.MetricsPushIngestURL, "agent_id", agentID)
+			logger.Info("push client enabled",
+				"ingest_url", cfg.MetricsPushIngestURL,
+				"agent_id", agentID,
+				"spool", cfg.MetricsPushSpoolPath,
+			)
 		}
 	}
 
@@ -176,6 +215,7 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		Containers:    containers,
 		AlertEngine:   alertEngine,
 		AlertConfig:   alertCfg,
+		AlertSilences: silenceStore,
 		DiagEngine:    diagEngine,
 		History:       histStore,
 		HubStats:      hubStats,
@@ -288,9 +328,15 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 
 	select {
 	case <-done:
+		if pushSpool != nil {
+			_ = pushSpool.Close()
+		}
 		logger.Info("stopped", "mode", string(mode))
 		return nil
 	case <-shutdownCtx.Done():
+		if pushSpool != nil {
+			_ = pushSpool.Close()
+		}
 		logger.Warn("shutdown timeout", "mode", string(mode))
 		return shutdownCtx.Err()
 	}

@@ -33,9 +33,10 @@ type Deps struct {
 	MetricsStore *store.SnapshotStore
 	Registry     *hub.Registry
 	Containers   docker.ContainerSource
-	AlertEngine  *alert.Engine
-	AlertConfig  *alert.ConfigStore
-	DiagEngine   *diagnostic.Engine
+	AlertEngine   *alert.Engine
+	AlertConfig   *alert.ConfigStore
+	AlertSilences *alert.SilenceStore
+	DiagEngine    *diagnostic.Engine
 	History      *history.Store
 	HubStats     *hub.Stats
 	Logger       *slog.Logger
@@ -263,8 +264,12 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 
 	if s.deps.History != nil {
 		agentID := req.AgentID
+		hostname := req.Hostname
 		snap := req.Snapshot
-		go func() { _ = s.deps.History.WriteSample(agentID, snap) }()
+		go func() {
+			_ = s.deps.History.WriteSample(agentID, snap)
+			_ = s.deps.History.UpsertAgent(agentID, hostname, snap)
+		}()
 	}
 
 	if s.deps.AlertEngine != nil {
@@ -299,7 +304,7 @@ func (s *Server) handleAgentsList(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, []hub.AgentSummary{})
 		return
 	}
-	writeJSON(w, s.deps.Registry.ListAgents())
+	writeJSON(w, s.listAgentsWithStatus())
 }
 
 func (s *Server) handleAgentRoutes(w http.ResponseWriter, r *http.Request) {
@@ -321,9 +326,20 @@ func (s *Server) handleAgentRoutes(w http.ResponseWriter, r *http.Request) {
 	switch parts[1] {
 	case "current":
 		snap, ok := s.deps.Registry.Latest(agentID)
+		if !ok && s.deps.History != nil {
+			var err error
+			snap, ok, err = s.deps.History.LatestSample(agentID)
+			if err != nil {
+				http.Error(w, "current error", http.StatusInternalServerError)
+				return
+			}
+		}
 		if !ok {
 			http.Error(w, "no content", http.StatusNoContent)
 			return
+		}
+		if summary, found := s.agentSummaryByID(agentID); found && summary.Status != "" {
+			w.Header().Set("X-Agent-Status", summary.Status)
 		}
 		writeJSON(w, snap)
 	case "history":
@@ -362,15 +378,14 @@ func (s *Server) handleHubConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	staleAfterMs := int(float64(s.deps.Config.MetricsCollectionPeriod.Milliseconds()) * s.deps.Config.AlertsStaleMultiplier)
-	if s.deps.AlertConfig != nil {
-		staleAfterMs = int(s.deps.AlertConfig.StaleAfter(s.deps.Config.MetricsCollectionPeriod).Milliseconds())
-	}
+	staleAfterMs := int(s.agentStaleAfter().Milliseconds())
+	offlineAfterMs := int(s.agentOfflineAfter().Milliseconds())
 	writeJSON(w, map[string]any{
 		"historySize":          120,
 		"version":              version,
 		"collectionIntervalMs": int(s.deps.Config.MetricsCollectionPeriod.Milliseconds()),
 		"staleAfterMs":         staleAfterMs,
+		"offlineAfterMs":       offlineAfterMs,
 	})
 }
 
@@ -430,6 +445,14 @@ func (s *Server) handleAlertRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(path, "/")
+	if len(parts) == 1 && parts[0] == "silence" {
+		s.handleAlertSilence(w, r)
+		return
+	}
+	if len(parts) == 1 && parts[0] == "silences" {
+		s.handleAlertSilencesList(w, r)
+		return
+	}
 	if len(parts) == 2 && parts[1] == "ack" {
 		s.handleAlertAck(w, r, parts[0])
 		return
@@ -479,6 +502,54 @@ func (s *Server) handleAlertAck(w http.ResponseWriter, r *http.Request, alertID 
 		return
 	}
 	writeJSON(w, record)
+}
+
+type alertSilenceRequest struct {
+	AgentID         string `json:"agentId"`
+	RuleID          string `json:"ruleId"`
+	DurationMinutes int    `json:"durationMinutes"`
+}
+
+func (s *Server) handleAlertSilence(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.deps.AlertSilences == nil {
+		http.Error(w, "silence unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	var req alertSilenceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.AgentID) == "" {
+		http.Error(w, "agentId required", http.StatusBadRequest)
+		return
+	}
+	duration := time.Duration(req.DurationMinutes) * time.Minute
+	if duration <= 0 {
+		duration = time.Hour
+	}
+	entry, err := s.deps.AlertSilences.Add(req.AgentID, req.RuleID, duration)
+	if err != nil {
+		http.Error(w, "silence error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, entry)
+}
+
+func (s *Server) handleAlertSilencesList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.deps.AlertSilences == nil {
+		writeJSON(w, []alert.SilenceEntry{})
+		return
+	}
+	writeJSON(w, s.deps.AlertSilences.List())
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

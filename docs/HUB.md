@@ -27,6 +27,7 @@ METRICS_ALERTS_MEMORY_THRESHOLD=0.90
 METRICS_ALERTS_DISK_THRESHOLD=90
 METRICS_ALERTS_COOLDOWN=600000          # ms, default 10m
 METRICS_ALERTS_STALE_MULTIPLIER=2.0       # stale after 2× collection interval
+METRICS_HUB_OFFLINE_AFTER=24h             # offline after no push (default 24h)
 ```
 
 Env vars seed the initial threshold set on first hub start. After that, use **Hub → Alert thresholds** in the UI (`PUT /api/v1/hub/alert-config`). Values persist in `hub_settings` when `METRICS_HISTORY_ENABLED=true`.
@@ -51,14 +52,21 @@ Local dev with hub + one push agent:
 ```bash
 make dev
 # → http://localhost:8081/hub
+# Go: save .go → auto-rebuild when air is installed (go install github.com/air-verse/air@latest)
 ```
 
-**Hot reload (UI + optional Go)** — no `make build` / restart for React changes:
+**Hot reload (UI + Go)** — React HMR on Vite:
 
 ```bash
 make dev-watch
 # → http://localhost:5173/hub   (Vite proxies API to :8081)
-# Go auto-reload: go install github.com/air-verse/air@latest
+```
+
+Single process with Go reload only:
+
+```bash
+make run-hub-watch   # hub only
+make run-watch       # agent only
 ```
 
 Agent local UI (`:8080`) remains optional for homelab and troubleshooting. In production with push enabled, prefer `METRICS_UI_ENABLED=false` on agents (see [DEPLOYMENT.md](DEPLOYMENT.md)).
@@ -86,10 +94,10 @@ Ingest auth: `Authorization: Bearer <token>` or `X-Ingest-Token` header when `ME
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/v1/ingest` | Agent payload ingest |
-| GET | `/api/v1/agents` | Agent summaries |
-| GET | `/api/v1/agents/{id}/current` | Latest snapshot |
+| GET | `/api/v1/agents` | Agent summaries (catalog + live); fields `status`, `firstSeen` |
+| GET | `/api/v1/agents/{id}/current` | Latest snapshot (registry or SQLite fallback); `X-Agent-Status` header |
 | GET | `/api/v1/agents/{id}/history?limit=60` | Ring buffer history |
-| GET | `/api/v1/hub/config` | Hub UI settings (stale interval, collection period) |
+| GET | `/api/v1/hub/config` | Hub UI settings (`staleAfterMs`, `offlineAfterMs`, collection period) |
 | GET | `/api/v1/hub/alert-config` | Alert + diagnostic thresholds |
 | PUT | `/api/v1/hub/alert-config` | Update thresholds (persisted when history enabled) |
 
@@ -118,6 +126,8 @@ METRICS_HISTORY_RETENTION_DAYS=30
 ```
 
 API: `GET /api/v1/agents/{id}/history?from=&to=&limit=` (SQLite when `from`/`to` set)
+
+Persistent agent catalog (`hub_agents`) keeps known agents visible after hub restart or push loss. See [ADR-014](DECISIONS/ADR-014-agent-catalog-offline.md).
 
 ## Hub APIs (G5.1)
 

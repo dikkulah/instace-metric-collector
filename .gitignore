@@ -3,6 +3,7 @@ metrics-collector.log*
 smoke-*.log
 logs/
 metrics-history.db
+push-spool.db
 
 # Build artifacts
 target/

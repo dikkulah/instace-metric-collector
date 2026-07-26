@@ -210,6 +210,8 @@ func (s *Store) QuerySamplesWithResolution(agentID, from, to, resolution string,
 		return s.QuerySamples(agentID, from, to, limit)
 	case "hourly":
 		return s.QueryHourlyRollup(agentID, from, to, limit)
+	case "daily":
+		return s.QueryDailyRollup(agentID, from, to, limit)
 	default:
 		return nil, fmt.Errorf("unsupported resolution: %s", resolution)
 	}

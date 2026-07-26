@@ -26,12 +26,15 @@ const (
 
 // Event matches the hub webhook payload contract (docs/HUB.md).
 type Event struct {
-	AgentID     string         `json:"agentId"`
-	AlertType   string         `json:"alertType"`
-	Severity    Severity       `json:"severity"`
-	Message     string         `json:"message"`
-	CollectedAt string         `json:"collectedAt"`
-	Details     map[string]any `json:"details"`
+	AgentID          string         `json:"agentId"`
+	AlertType        string         `json:"alertType"`
+	Severity         Severity       `json:"severity"`
+	Message          string         `json:"message"`
+	CollectedAt      string         `json:"collectedAt"`
+	Details          map[string]any `json:"details"`
+	Status           string         `json:"status,omitempty"`
+	AlertID          string         `json:"alertId,omitempty"`
+	AcknowledgedAt   string         `json:"acknowledgedAt,omitempty"`
 }
 
 // EvalContext is the input for rule evaluation — ingest data only (V16).
