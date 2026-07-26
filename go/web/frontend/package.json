@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:hub": "playwright test -c playwright.hub.config.ts",
+    "test:e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "i18next": "^26.3.6",
@@ -17,6 +20,7 @@
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",

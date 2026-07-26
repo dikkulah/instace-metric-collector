@@ -19,8 +19,6 @@ Design system: `assets/e48e934abd334fdab373262383984aa6`
 | Screen | ID | Prompt |
 |--------|-----|--------|
 | Host Dashboard Overview | `823c031f889847728efbc086a0cc2ed9` | `tool/stitch_prompt_dashboard_v2.txt` |
-| Processes (v2) | _pending_ | `tool/stitch_prompt_processes_v2.txt` |
-| Services tree (v2) | _pending_ | `tool/stitch_prompt_services_v2.txt` |
-| Hub agents (v2) | _pending_ | `tool/stitch_prompt_hub_v2.txt` |
-
-Generation running via `tool/stitch_prompt_*_v2.txt` — check `/tmp/stitch_gen_*_v2.log` for IDs.
+| Processes (v2) | `62bcfaac196b46fab14bebf2b80107b0` | `tool/stitch_prompt_processes_v2.txt` |
+| Services tree (v2) | `04da67c39b2d4e5d959b53248aafe454` | `tool/stitch_prompt_services_v2.txt` |
+| Hub agents (v2) | `bc7d615b7eb44b0ca5997786a573cbf0` | `tool/stitch_prompt_hub_v2.txt` |

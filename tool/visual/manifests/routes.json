@@ -1,0 +1,79 @@
+{
+  "baseUrl": "http://127.0.0.1:18081",
+  "locale": "en",
+  "routes": [
+    {
+      "id": "dashboard",
+      "path": "/",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "823c031f889847728efbc086a0cc2ed9",
+      "baseline": "dashboard-823c031f-1440.png",
+      "checklist": ["four-summary-cards", "disk-network-panels", "container-mini-grid"]
+    },
+    {
+      "id": "processes",
+      "path": "/processes",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "62bcfaac196b46fab14bebf2b80107b0",
+      "baseline": "processes-62bcfaac-1440.png",
+      "checklist": ["60-40-split", "table-sticky-header", "bottom-row-detail-in-viewport"]
+    },
+    {
+      "id": "services",
+      "path": "/services",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "04da67c39b2d4e5d959b53248aafe454",
+      "baseline": "services-04da67c3-1440.png",
+      "checklist": ["60-40-split", "tree-list-toggle", "bottom-row-detail-in-viewport"]
+    },
+    {
+      "id": "containers-desktop",
+      "path": "/containers",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "235e1839d6ac4c6b81acc2ae887e5fa3",
+      "baseline": "containers-235e1839-1440.png",
+      "checklist": ["55-45-split", "dense-list-rows", "detail-hero-tabs"]
+    },
+    {
+      "id": "containers-mobile",
+      "path": "/containers",
+      "viewport": { "width": 390, "height": 844 },
+      "stitchId": "8e08b6e5235f4aceaf40910df8acff64",
+      "baseline": "containers-8e08b6e5-390.png",
+      "checklist": ["single-column-list", "drill-down-back"]
+    },
+    {
+      "id": "container-metrics-overview",
+      "path": "/container-metrics?id=abc123def456&tab=overview",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "63d0e2e60e2a447184d4bd944ac90b23",
+      "baseline": "container-metrics-overview-63d0e2e6-1440.png",
+      "checklist": ["hero-picker-tabs", "three-summary-cards"]
+    },
+    {
+      "id": "container-metrics-processes",
+      "path": "/container-metrics?id=abc123def456&tab=processes",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "9b042dcc2b0d4128bb7b345fe4fc2641",
+      "baseline": "container-metrics-processes-9b042dcc-1440.png",
+      "checklist": ["60-40-split", "process-detail-panel"]
+    },
+    {
+      "id": "container-metrics-services",
+      "path": "/container-metrics?id=abc123def456&tab=services",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "7b5efd911a4a4ec3ab398472f9694c0e",
+      "baseline": "container-metrics-services-7b5efd91-1440.png",
+      "checklist": ["60-40-split", "service-tree"]
+    },
+    {
+      "id": "hub",
+      "path": "/hub",
+      "viewport": { "width": 1440, "height": 900 },
+      "stitchId": "bc7d615b7eb44b0ca5997786a573cbf0",
+      "baseline": "hub-bc7d615b-1440.png",
+      "checklist": ["three-column-grid", "inline-metric-bars"],
+      "note": "Requires hub binary (make run-hub); agent mode shows empty state"
+    }
+  ]
+}
