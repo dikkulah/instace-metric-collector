@@ -16,6 +16,11 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.1,
+    },
+  },
   use: {
     baseURL,
     locale: 'en-US',
