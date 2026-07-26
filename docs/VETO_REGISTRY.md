@@ -1,4 +1,4 @@
-# Council veto registry (V1–V20)
+# Council veto registry (V1–V21)
 
 Canonical list for agent veto scans. Rule files in `.cursor/rules/` map to these IDs.
 
@@ -24,6 +24,7 @@ Canonical list for agent veto scans. Rule files in `.cursor/rules/` map to these
 | V18 | UI | `metrics.ui.enabled=false` allows headless mode without web UI | `metrics-collector-ui.mdc` |
 | V19 | Phase | Web dashboard not enabled without Phase 3 gate + user approval | `metrics-collector-phase-gates.mdc` |
 | V20 | i18n | No hardcoded user-visible strings in dashboard HTML/JS — use locale JSON keys | `metrics-collector-ui.mdc` |
+| V21 | Agent footprint | Agent collect path stays non-blocking; bounded per-tick work; heavy logic on hub (ADR-013) | `metrics-collector-architecture.mdc` |
 
 ## Scan policy
 

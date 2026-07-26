@@ -6,6 +6,24 @@ Pazar analizi çıktısı. **Runtime:** Go agent + hub (ADR-009; Java kaldırıl
 
 ---
 
+## Tasarım ilkeleri
+
+### 1. Agent host'u yormaz (V21, ADR-013)
+
+> Agent, çalıştığı instance'i yormamalı ve darboğaz olmamalı.
+
+| Kural | Uygulama |
+|-------|----------|
+| İnce agent | Top-N süreç, sınırlı probe, tek ticker döngüsü |
+| Ağır iş hub'da | History, rollup, sustained alert, diagnostics trend |
+| Non-blocking | Push, SQLite, webhook collect path'te senkron değil |
+| Görünürlük | `agentMemoryBytes`, `agentGoroutines`, `collectDurationMs` payload'da |
+| Headless prod | `METRICS_UI_ENABLED=false` + push → minimum footprint |
+
+Detay: [`DECISIONS/ADR-013-agent-lightness.md`](DECISIONS/ADR-013-agent-lightness.md)
+
+---
+
 ## Problem
 
 | Kim | Sorun |

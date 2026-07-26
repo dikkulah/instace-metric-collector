@@ -24,6 +24,6 @@ Delegate to project subagents in `.cursor/agents/` when work is clearly in one d
 ## Do not
 
 - Split one small change across multiple agents.
-- Bypass council gate (`council-gate.mdc`) — stop and ask user if V1–V20 would be violated.
+- Bypass council gate (`council-gate.mdc`) — stop and ask user if V1–V21 would be violated.
 
 See `.cursor/agents/README.md` for full setup.

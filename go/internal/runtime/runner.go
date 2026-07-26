@@ -18,6 +18,7 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/demo"
 	"github.com/dikkulah/instance-metric-collector/go/internal/diagnostic"
 	"github.com/dikkulah/instance-metric-collector/go/internal/docker"
+	"github.com/dikkulah/instance-metric-collector/go/internal/footprint"
 	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/logoutput"
@@ -233,13 +234,16 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				if cfg.DemoMode || metricsCollector == nil {
 					snap = demo.BuildSnapshot(tick)
 				} else {
+					start := time.Now()
 					p, err := metricsCollector.Collect(ctx)
+					collectMs := time.Since(start).Milliseconds()
 					if err != nil {
 						logger.Warn("collect failed", "err", err)
 						continue
 					}
 					p.Containers = containers.Cached()
 					p.ConnectivityProbes = probe.Run(ctx, probeCfg)
+					footprint.Apply(&p, collectMs)
 					snap = payload.Snapshot{
 						CollectedAt: time.Now().UTC().Format(time.RFC3339Nano),
 						Payload:     p,
