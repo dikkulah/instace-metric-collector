@@ -1,6 +1,6 @@
 # instance-metric-collector — developer shortcuts. Run `make help` first.
 SHELL := /bin/bash
-.PHONY: help setup setup-hooks onboard run run-hub test check ci ci-fast ci-smoke doctor docker-build docker-up docker-down docker-smoke ui-install ui-build build clean
+.PHONY: help setup setup-hooks onboard run run-hub dev dev-watch test check ci ci-fast ci-smoke doctor docker-build docker-up docker-down docker-smoke ui-install ui-build ui-visual-serve ui-visual-routes ui-visual-stop ui-e2e ui-e2e-hub ui-e2e-update build release clean
 
 help:
 	@echo "instance-metric-collector — common targets"
@@ -10,6 +10,8 @@ help:
 	@echo "  make setup-hooks  Enable pre-push hook (go test)"
 	@echo "  make run          Start Go agent with UI on :8080"
 	@echo "  make run-hub      Start Go hub with UI on :8081"
+	@echo "  make dev          Hub + push agent (operator UI on :8081)"
+	@echo "  make dev-watch    Hot reload: Vite :5173 + hub/agent (install air for Go reload)"
 	@echo "  make test         Run Go unit tests"
 	@echo "  make check        Same as test"
 	@echo "  make ci-fast      Local CI — unit tests only (~1 min)"
@@ -22,7 +24,11 @@ help:
 	@echo ""
 	@echo "  make ui-install   npm ci in go/web/frontend"
 	@echo "  make ui-build     Build React SPA into go/internal/webui/dist"
+	@echo "  make ui-visual-serve   DEMO_MODE agent on :18081 for visual tests"
+	@echo "  make ui-visual-routes  Print visual test URLs"
+	@echo "  make ui-e2e       Playwright visual/interaction tests"
 	@echo "  make build        Build agent + hub binaries (includes ui-build)"
+	@echo "  make release      Cross-compile outpost-agent/hub (VERSION= tag)"
 	@echo "  make clean        Remove generated bin/, dist/, node_modules/"
 	@echo ""
 	@echo "Examples:"
@@ -41,10 +47,20 @@ onboard:
 	./tool/onboard.sh
 
 run: build
-	METRICS_COLLECTION_INTERVAL=5000 METRICS_UI_ENABLED=true SERVER_PORT=8080 ./go/bin/agent
+	@chmod +x tool/run_agent.sh tool/kill_port.sh 2>/dev/null || true
+	@bash tool/run_agent.sh
 
 run-hub: build
-	METRICS_COLLECTION_INTERVAL=5000 METRICS_UI_ENABLED=true SERVER_PORT=8081 ./go/bin/hub
+	@chmod +x tool/run_hub.sh tool/kill_port.sh 2>/dev/null || true
+	@bash tool/run_hub.sh
+
+dev: build
+	@chmod +x tool/dev_stack.sh tool/kill_port.sh 2>/dev/null || true
+	@bash tool/dev_stack.sh
+
+dev-watch:
+	@chmod +x tool/dev_watch.sh tool/kill_port.sh 2>/dev/null || true
+	@bash tool/dev_watch.sh
 
 test:
 	$(MAKE) -C go test
@@ -84,8 +100,33 @@ ui-install:
 ui-build:
 	$(MAKE) -C go ui-build
 
+ui-visual-serve:
+	chmod +x tool/visual/serve.sh tool/visual/capture.sh 2>/dev/null || true
+	bash tool/visual/serve.sh
+
+ui-visual-routes:
+	chmod +x tool/visual/capture.sh 2>/dev/null || true
+	bash tool/visual/capture.sh --routes-only
+
+ui-visual-stop:
+	chmod +x tool/visual/stop.sh 2>/dev/null || true
+	bash tool/visual/stop.sh
+
+ui-e2e:
+	$(MAKE) -C go ui-e2e
+
+ui-e2e-hub:
+	$(MAKE) -C go ui-e2e-hub
+
+ui-e2e-update:
+	$(MAKE) -C go ui-e2e-update
+
 build:
-	$(MAKE) -C go build
+	@bash -c 'source tool/make_helpers.sh && make_banner "Building instance-metric-collector"'
+	@$(MAKE) -C go build
+
+release:
+	@$(MAKE) -C go release VERSION=$(VERSION)
 
 clean:
 	$(MAKE) -C go clean
