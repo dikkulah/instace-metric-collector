@@ -11,6 +11,16 @@
 | `check_i18n_coverage.sh` | Locale JSON key parity (`en` vs `tr`) |
 | `run_stitch_mcp.sh` | Google Stitch MCP wrapper (Cursor UI design) |
 | `setup_stitch_mcp.sh` | One-time Stitch API key setup |
+| `visual/` | Visual test routes, baselines, `serve.sh`, `capture.sh` — see [docs/VISUAL_TESTING.md](../docs/VISUAL_TESTING.md) |
+
+## Visual testing
+
+```bash
+make ui-visual-serve    # DEMO_MODE agent :18081
+make ui-visual-routes   # print test URLs
+make ui-e2e             # Playwright regression
+./tool/visual/download_baselines.sh   # Stitch PNG references
+```
 
 ## Stitch MCP (UI design)
 

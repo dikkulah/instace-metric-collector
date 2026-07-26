@@ -1,0 +1,13 @@
+# Live reload for hub backend (used by make dev-watch).
+root = "."
+tmp_dir = "tmp/air-hub"
+
+[build]
+  cmd = "go build -o ./tmp/air-hub/hub ./cmd/hub"
+  bin = "./tmp/air-hub/hub"
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "bin", "web", "internal/webui"]
+  delay = 400
+
+[log]
+  time = true
