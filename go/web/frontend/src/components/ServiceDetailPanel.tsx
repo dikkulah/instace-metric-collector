@@ -15,18 +15,20 @@ export function ServiceDetailPanel({
   s,
   processes,
   processLinkPrefix = '/processes',
+  compact = false,
 }: {
   s: ServiceInfo
   processes: ProcessInfo[]
   processLinkPrefix?: string
+  compact?: boolean
 }) {
   const { t } = useTranslation()
   const related = findProcessesForService(s, processes)
   const path = serviceDomainPath(s.serviceName)
 
   return (
-    <div className="panel p-5 space-y-4 h-full overflow-auto">
-      <h2 className="text-lg font-semibold">{t('services.detail.title')}</h2>
+    <div className={`panel space-y-4 h-full max-h-full overflow-hidden flex flex-col min-w-0 ${compact ? 'p-4' : 'p-5'}`}>
+      <h2 className={`font-semibold ${compact ? 'text-base' : 'text-lg'}`}>{t('services.detail.title')}</h2>
       <StatusPill label={s.status} tone={statusTone(s.status)} pulse={s.status === 'RUNNING'} />
       <DefinitionList
         items={[
@@ -36,11 +38,11 @@ export function ServiceDetailPanel({
       />
       <div>
         <div className="label-caps mb-2">{t('services.detail.breadcrumb')}</div>
-        <div className="text-sm mono text-on-surface-variant">
+        <div className="text-sm mono text-on-surface-variant break-all">
           {path.join(' › ')}
         </div>
       </div>
-      <div>
+      <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="label-caps mb-2">{t('services.detail.relatedProcesses')}</div>
         <p className="text-xs text-on-surface-variant mb-2">{t('services.detail.relatedProcessesHint')}</p>
         {related.length === 0 ? (
@@ -48,12 +50,13 @@ export function ServiceDetailPanel({
         ) : (
           <ul className="space-y-2">
             {related.map(({ proc, likely }) => (
-              <li key={proc.pid}>
+              <li key={proc.pid} className="min-w-0">
                 <Link
                   to={`${processLinkPrefix}?pid=${proc.pid}`}
-                  className="text-sm text-primary hover:underline mono"
+                  className="text-sm text-primary hover:underline mono block truncate"
+                  title={proc.command}
                 >
-                  {likely ? `~ PID ${proc.pid}` : `PID ${proc.pid}`} — {proc.command.slice(0, 60)}
+                  {likely ? `~ PID ${proc.pid}` : `PID ${proc.pid}`} — {proc.command}
                 </Link>
               </li>
             ))}

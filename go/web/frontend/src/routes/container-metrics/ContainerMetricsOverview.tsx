@@ -1,30 +1,24 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMetricsContext } from '../../context/MetricsContext'
-import { useAgentHref } from '../../hooks/useAgentBasePath'
-import { MetricCard, barFillClass } from '../../components/MetricCard'
-import { EmptyState } from '../../components/EmptyState'
+import { MetricCard } from '../../components/MetricCard'
 import { StatusPill } from '../../components/StatusPill'
-import { PageShell } from '../../components/layout/PageShell'
 import { formatBytes, formatPercent, isAgentContainer } from '../../lib/format'
 
-export function DashboardPage() {
+/** Container-scoped overview: 3 summary cards + disk/network/containers (Stitch container metrics overview). */
+export function ContainerMetricsOverview() {
   const { t } = useTranslation()
   const { snapshot } = useMetricsContext()
-  const containersHref = useAgentHref('containers')
 
-  if (!snapshot) {
-    return <EmptyState message={t('app.waiting')} />
-  }
+  if (!snapshot) return null
 
   const p = snapshot.payload
   const memPct = p.totalMemory > 0 ? (p.usedMemory / p.totalMemory) * 100 : 0
   const healthy = p.containers.filter((c) => c.health === 'healthy').length
-  const loadPct = p.availableProcessors > 0 ? (p.systemLoadAverage / p.availableProcessors) * 100 : 0
 
   return (
-    <PageShell title={t('nav.dashboard')} variant="scroll">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <MetricCard label={t('card.cpu')} value={formatPercent(p.cpuLoad)} percent={p.cpuLoad} />
         <MetricCard
           label={t('card.memory')}
@@ -37,12 +31,6 @@ export function DashboardPage() {
           value={String(p.containers.length)}
           percent={p.containers.length ? (healthy / p.containers.length) * 100 : 0}
           subtitle={`${healthy} ${t('card.healthy')}`}
-        />
-        <MetricCard
-          label={t('card.load')}
-          value={p.systemLoadAverage.toFixed(2)}
-          percent={loadPct}
-          subtitle={t('cpu.coresActive', { active: p.availableProcessors, total: p.availableProcessors })}
         />
       </div>
 
@@ -62,21 +50,9 @@ export function DashboardPage() {
               <tbody>
                 {p.diskUsage.map((d) => (
                   <tr key={d.mount} className="border-t border-outline-variant/50">
-                    <td className="py-2 mono max-w-[10rem] truncate" title={d.mount}>
-                      {d.mount}
-                    </td>
+                    <td className="py-2 mono">{d.mount}</td>
                     <td className="py-2 text-on-surface-variant text-xs">{d.filesystem}</td>
-                    <td className="py-2">
-                      <div className="flex items-center gap-2 justify-end">
-                        <div className="hidden sm:block w-20 h-1.5 rounded-full bg-surface-highest overflow-hidden shrink-0">
-                          <div
-                            className={`h-full ${barFillClass(d.usePercent)}`}
-                            style={{ width: `${Math.min(d.usePercent, 100)}%` }}
-                          />
-                        </div>
-                        <span className="mono text-right w-12 shrink-0">{formatPercent(d.usePercent)}</span>
-                      </div>
-                    </td>
+                    <td className="py-2 text-right mono">{formatPercent(d.usePercent)}</td>
                     <td className="py-2 text-right mono text-on-surface-variant">
                       {formatBytes(d.totalBytes)}
                     </td>
@@ -91,7 +67,7 @@ export function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left label-caps border-b border-outline-variant">
+                <tr className="text-left label-caps">
                   <th className="pb-2">{t('table.name')}</th>
                   <th className="pb-2 text-right">{t('table.rx')}</th>
                   <th className="pb-2 text-right">{t('table.tx')}</th>
@@ -118,7 +94,7 @@ export function DashboardPage() {
             {p.containers.slice(0, 6).map((c) => (
               <Link
                 key={c.id}
-                to={`${containersHref}?id=${encodeURIComponent(c.id)}`}
+                to={`/container-metrics?id=${encodeURIComponent(c.id)}`}
                 className="p-3 rounded-lg border border-outline-variant hover:bg-surface-high"
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -133,6 +109,6 @@ export function DashboardPage() {
           </div>
         </section>
       )}
-    </PageShell>
+    </div>
   )
 }
