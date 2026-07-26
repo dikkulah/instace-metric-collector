@@ -1,6 +1,6 @@
 # instance-metric-collector — developer shortcuts. Run `make help` first.
 SHELL := /bin/bash
-.PHONY: help setup setup-hooks onboard run run-hub dev dev-watch test check ci ci-fast ci-smoke doctor docker-build docker-up docker-down docker-smoke ui-install ui-build ui-visual-serve ui-visual-routes ui-visual-stop ui-e2e ui-e2e-hub ui-e2e-update build release clean
+.PHONY: help setup setup-hooks onboard run run-watch run-hub run-hub-watch dev dev-watch test check ci ci-fast ci-smoke doctor docker-build docker-up docker-down docker-smoke ui-install ui-build ui-visual-serve ui-visual-routes ui-visual-stop ui-e2e ui-e2e-hub ui-e2e-update build release clean
 
 help:
 	@echo "instance-metric-collector — common targets"
@@ -9,9 +9,11 @@ help:
 	@echo "  make setup        Build agent binary (includes UI)"
 	@echo "  make setup-hooks  Enable pre-push hook (go test)"
 	@echo "  make run          Start Go agent with UI on :8080"
+	@echo "  make run-watch    Agent with Go auto-reload (air)"
 	@echo "  make run-hub      Start Go hub with UI on :8081"
-	@echo "  make dev          Hub + push agent (operator UI on :8081)"
-	@echo "  make dev-watch    Hot reload: Vite :5173 + hub/agent (install air for Go reload)"
+	@echo "  make run-hub-watch Hub with Go auto-reload (air)"
+	@echo "  make dev          Hub + push agent (:8081); Go reload if air installed"
+	@echo "  make dev-watch    UI (Vite :5173) + Go reload (air)"
 	@echo "  make test         Run Go unit tests"
 	@echo "  make check        Same as test"
 	@echo "  make ci-fast      Local CI — unit tests only (~1 min)"
@@ -50,16 +52,24 @@ run: build
 	@chmod +x tool/run_agent.sh tool/kill_port.sh 2>/dev/null || true
 	@bash tool/run_agent.sh
 
+run-watch:
+	@chmod +x tool/run_agent_watch.sh tool/kill_port.sh 2>/dev/null || true
+	@bash tool/run_agent_watch.sh
+
 run-hub: build
 	@chmod +x tool/run_hub.sh tool/kill_port.sh 2>/dev/null || true
 	@bash tool/run_hub.sh
 
-dev: build
-	@chmod +x tool/dev_stack.sh tool/kill_port.sh 2>/dev/null || true
+run-hub-watch:
+	@chmod +x tool/run_hub_watch.sh tool/kill_port.sh 2>/dev/null || true
+	@bash tool/run_hub_watch.sh
+
+dev:
+	@chmod +x tool/dev_stack.sh tool/kill_port.sh tool/air_path.sh 2>/dev/null || true
 	@bash tool/dev_stack.sh
 
 dev-watch:
-	@chmod +x tool/dev_watch.sh tool/kill_port.sh 2>/dev/null || true
+	@chmod +x tool/dev_watch.sh tool/kill_port.sh tool/air_path.sh 2>/dev/null || true
 	@bash tool/dev_watch.sh
 
 test:
@@ -99,6 +109,9 @@ ui-install:
 
 ui-build:
 	$(MAKE) -C go ui-build
+
+ui-sync-dist:
+	$(MAKE) -C go ui-sync-dist
 
 ui-visual-serve:
 	chmod +x tool/visual/serve.sh tool/visual/capture.sh 2>/dev/null || true

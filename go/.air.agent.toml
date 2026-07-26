@@ -3,10 +3,11 @@ root = "."
 tmp_dir = "tmp/air-agent"
 
 [build]
-  cmd = "go build -o ./tmp/air-agent/agent ./cmd/agent"
+  cmd = "make ui-sync-dist && go build -o ./tmp/air-agent/agent ./cmd/agent"
   bin = "./tmp/air-agent/agent"
-  include_ext = ["go"]
-  exclude_dir = ["tmp", "bin", "web", "internal/webui"]
+  include_ext = ["go", "html", "js", "css"]
+  include_dir = ["internal/webui"]
+  exclude_dir = ["tmp", "bin", "web"]
   delay = 400
 
 [log]

@@ -3,10 +3,11 @@ root = "."
 tmp_dir = "tmp/air-hub"
 
 [build]
-  cmd = "go build -o ./tmp/air-hub/hub ./cmd/hub"
+  cmd = "make ui-sync-dist && go build -o ./tmp/air-hub/hub ./cmd/hub"
   bin = "./tmp/air-hub/hub"
-  include_ext = ["go"]
-  exclude_dir = ["tmp", "bin", "web", "internal/webui"]
+  include_ext = ["go", "html", "js", "css"]
+  include_dir = ["internal/webui"]
+  exclude_dir = ["tmp", "bin", "web"]
   delay = 400
 
 [log]
