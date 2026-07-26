@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -20,16 +21,16 @@ func BuildSnapshot(tick int) payload.Snapshot {
 			TotalMemory:         17_179_869_184,
 			AvailableProcessors: 8,
 			SystemLoadAverage:   cpu / 100.0 * 8,
-			ProcessInfos: []payload.ProcessInfo{
+			ProcessInfos: append([]payload.ProcessInfo{
 				{User: "dikkulah", PID: 1234, CPUUsage: 4.2, MemoryUsage: 1.8, Command: "/usr/bin/java -jar metrics-collector.jar"},
 				{User: "root", PID: 1, CPUUsage: 0.1, MemoryUsage: 0.2, Command: "/sbin/init"},
 				{User: "dikkulah", PID: 5678, CPUUsage: 2.1, MemoryUsage: 0.9, Command: "node /app/server.js"},
-			},
-			ServiceInfos: []payload.ServiceInfo{
+			}, demoProcesses(48)...),
+			ServiceInfos: append([]payload.ServiceInfo{
 				{ServiceName: "com.docker.docker", Status: "RUNNING", Description: "Docker Desktop"},
 				{ServiceName: "homebrew.mxcl.postgresql", Status: "RUNNING", Description: "PostgreSQL"},
 				{ServiceName: "org.nginx.nginx", Status: "STOPPED", Description: "nginx"},
-			},
+			}, demoServices(52)...),
 			Containers: []payload.ContainerInfo{
 				{
 					ID:             "abc123def456",
@@ -64,4 +65,38 @@ func BuildSnapshot(tick int) payload.Snapshot {
 			},
 		},
 	}
+}
+
+func demoServices(n int) []payload.ServiceInfo {
+	out := make([]payload.ServiceInfo, 0, n)
+	for i := 1; i <= n; i++ {
+		status := "RUNNING"
+		if i%7 == 0 {
+			status = "STOPPED"
+		}
+		if i%11 == 0 {
+			status = "ERROR"
+		}
+		out = append(out, payload.ServiceInfo{
+			ServiceName: fmt.Sprintf("com.example.worker.%d", i),
+			Status:      status,
+			Description: fmt.Sprintf("Demo worker service %d", i),
+		})
+	}
+	return out
+}
+
+func demoProcesses(n int) []payload.ProcessInfo {
+	out := make([]payload.ProcessInfo, 0, n)
+	for i := 1; i <= n; i++ {
+		pid := 9000 + i
+		out = append(out, payload.ProcessInfo{
+			User:        "demo",
+			PID:         pid,
+			CPUUsage:    float64(i%20) + 0.5,
+			MemoryUsage: float64(i%15) + 0.3,
+			Command:     fmt.Sprintf("/usr/bin/demo-proc-%d --port=%d", i, 3000+i),
+		})
+	}
+	return out
 }

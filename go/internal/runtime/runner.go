@@ -11,14 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dikkulah/instance-metric-collector/go/internal/alert"
 	"github.com/dikkulah/instance-metric-collector/go/internal/appmode"
 	"github.com/dikkulah/instance-metric-collector/go/internal/collector"
 	"github.com/dikkulah/instance-metric-collector/go/internal/config"
 	"github.com/dikkulah/instance-metric-collector/go/internal/demo"
+	"github.com/dikkulah/instance-metric-collector/go/internal/diagnostic"
 	"github.com/dikkulah/instance-metric-collector/go/internal/docker"
+	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/logoutput"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
+	"github.com/dikkulah/instance-metric-collector/go/internal/probe"
+	"github.com/dikkulah/instance-metric-collector/go/internal/push"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
 	"github.com/dikkulah/instance-metric-collector/go/internal/web"
 )
@@ -38,6 +43,7 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		"docker_enabled", cfg.DockerEnabled,
 		"demo_mode", cfg.DemoMode,
 		"hub_enabled", cfg.HubEnabled,
+		"push_enabled", cfg.MetricsPushEnabled,
 	)
 
 	metricsStore := store.NewSnapshotStore(120)
@@ -51,10 +57,98 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		defer payloadLog.Close()
 		logger.Info("payload log enabled", "path", cfg.LoggingFileName)
 	}
+
 	var registry *hub.Registry
+	var hubStats *hub.Stats
+	var histStore *history.Store
+	var alertCfg *alert.ConfigStore
+	var alertEngine *alert.Engine
+	var diagEngine *diagnostic.Engine
+
 	if mode == appmode.Hub {
 		registry = hub.NewRegistry()
+		hubStats = hub.NewStats()
+		if cfg.HistoryEnabled {
+			var err error
+			histStore, err = history.Open(cfg.HistoryDBPath, cfg.HistoryProfile, cfg.HistoryRetentionDays)
+			if err != nil {
+				logger.Warn("history store unavailable", "err", err)
+			} else {
+				logger.Info("history store enabled", "path", cfg.HistoryDBPath, "profile", cfg.HistoryProfile)
+				go func() {
+					rollupTicker := time.NewTicker(time.Hour)
+					retentionTicker := time.NewTicker(24 * time.Hour)
+					defer rollupTicker.Stop()
+					defer retentionTicker.Stop()
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						case <-rollupTicker.C:
+							if err := histStore.RunHourlyRollup(ctx); err != nil {
+								logger.Warn("hourly rollup failed", "err", err)
+							}
+						case <-retentionTicker.C:
+							if err := histStore.RunRetention(ctx); err != nil {
+								logger.Warn("history retention failed", "err", err)
+							}
+						}
+					}
+				}()
+			}
+		}
+
+		alertCfg = alert.LoadConfigStore(cfg, histStore)
+		diagEngine = diagnostic.NewEngine(histStore, alertCfg)
+
+		if cfg.AlertsWebhookURL != "" {
+			base := alert.NewWebhookNotifier(cfg.AlertsWebhookURL, 5*time.Second)
+			var notifier alert.Notifier = base
+			if histStore != nil {
+				notifier = alert.NewPersistingNotifier(base, func(ev alert.Event) {
+					_ = histStore.SaveAlertEvent(ev, "OPEN")
+				})
+			}
+			rules := alert.DefaultRules(alertCfg)
+			alertEngine = alert.NewEngine(rules, notifier, alertCfg, logger)
+			alertEngine.SetStats(hubStats)
+			go alertEngine.Run(ctx)
+			go alertEngine.RunStaleChecker(ctx, cfg.MetricsCollectionPeriod, cfg.MetricsCollectionPeriod, func() []alert.AgentSeen {
+				seen := registry.ListAgentSeen()
+				out := make([]alert.AgentSeen, len(seen))
+				for i, a := range seen {
+					out[i] = alert.AgentSeen{AgentID: a.AgentID, Hostname: a.Hostname, LastSeen: a.LastSeen}
+				}
+				return out
+			})
+			logger.Info("alert engine enabled", "webhook", cfg.AlertsWebhookURL)
+		}
 	}
+
+	var pushClient *push.Client
+	if mode == appmode.Agent && cfg.MetricsPushEnabled {
+		if cfg.MetricsPushIngestURL == "" {
+			logger.Error("METRICS_PUSH_ENABLED but METRICS_PUSH_INGEST_URL is empty; push disabled")
+		} else {
+			agentID := cfg.MetricsPushAgentID
+			if agentID == "" {
+				agentID, _ = os.Hostname()
+			}
+			hostname, _ := os.Hostname()
+			pushClient = push.NewClient(push.Options{
+				IngestURL:  cfg.MetricsPushIngestURL,
+				AgentID:    agentID,
+				Hostname:   hostname,
+				AuthToken:  cfg.MetricsPushAuthToken,
+				Timeout:    cfg.MetricsPushTimeout,
+				MaxRetries: cfg.MetricsPushMaxRetries,
+			}, logger)
+			go pushClient.Run(ctx)
+			logger.Info("push client enabled", "ingest_url", cfg.MetricsPushIngestURL, "agent_id", agentID)
+		}
+	}
+
+	probeCfg := probe.LoadFromEnv()
 
 	var containers docker.ContainerSource = docker.NoopSource{}
 	if cfg.DockerEnabled && mode == appmode.Agent {
@@ -69,13 +163,30 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 	var metricsCollector collector.Collector
 	if cfg.DemoMode {
 		metricsCollector = nil
-	} else {
+	} else if mode == appmode.Agent {
 		metricsCollector = collector.New()
+	}
+
+	deps := web.Deps{
+		Mode:          mode,
+		Config:        cfg,
+		MetricsStore:  metricsStore,
+		Registry:      registry,
+		Containers:    containers,
+		AlertEngine:   alertEngine,
+		AlertConfig:   alertCfg,
+		DiagEngine:    diagEngine,
+		History:       histStore,
+		HubStats:      hubStats,
+		Logger:        logger,
 	}
 
 	var httpServer *http.Server
 	if cfg.MetricsUIEnabled {
-		srv := web.NewServer(mode, cfg, metricsStore, registry, containers, logger)
+		if cfg.DemoMode && mode == appmode.Agent {
+			metricsStore.Push(demo.BuildSnapshot(0))
+		}
+		srv := web.NewServer(deps)
 		httpServer = &http.Server{
 			Addr:              ":" + cfg.ServerPort,
 			Handler:           srv.Handler(),
@@ -87,6 +198,21 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				logger.Error("http server error", "err", err)
 			}
 		}()
+	}
+
+	// Hub mode: no local collector loop — data arrives via ingest only.
+	if mode == appmode.Hub {
+		<-ctx.Done()
+		logger.Info("shutdown", "mode", string(mode), "signal", ctx.Err().Error())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if httpServer != nil {
+			_ = httpServer.Shutdown(shutdownCtx)
+		}
+		if histStore != nil {
+			_ = histStore.Close()
+		}
+		return nil
 	}
 
 	ticker := time.NewTicker(cfg.MetricsCollectionPeriod)
@@ -113,22 +239,24 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 						continue
 					}
 					p.Containers = containers.Cached()
+					p.ConnectivityProbes = probe.Run(ctx, probeCfg)
 					snap = payload.Snapshot{
 						CollectedAt: time.Now().UTC().Format(time.RFC3339Nano),
 						Payload:     p,
 					}
 				}
-				if mode == appmode.Agent {
-					metricsStore.Push(snap)
-					if payloadLog != nil {
-						if err := payloadLog.Write(snap.Payload); err != nil {
-							logger.Warn("payload log write failed", "err", err)
-						}
+				metricsStore.Push(snap)
+				if payloadLog != nil {
+					if err := payloadLog.Write(snap.Payload); err != nil {
+						logger.Warn("payload log write failed", "err", err)
 					}
+				}
+				if pushClient != nil {
+					pushClient.Enqueue(snap)
 				}
 				logger.Info("heartbeat",
 					"mode", string(mode),
-					"phase", "G2",
+					"phase", "G5.1",
 					"cpu", fmt.Sprintf("%.1f", snap.Payload.CPULoad),
 					"processes", len(snap.Payload.ProcessInfos),
 					"services", len(snap.Payload.ServiceInfos),

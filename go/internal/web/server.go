@@ -11,40 +11,50 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dikkulah/instance-metric-collector/go/internal/alert"
+	"github.com/dikkulah/instance-metric-collector/go/internal/appmode"
 	"github.com/dikkulah/instance-metric-collector/go/internal/config"
+	"github.com/dikkulah/instance-metric-collector/go/internal/diagnostic"
 	"github.com/dikkulah/instance-metric-collector/go/internal/docker"
+	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
-	"github.com/dikkulah/instance-metric-collector/go/internal/appmode"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
 	"github.com/dikkulah/instance-metric-collector/go/internal/webui"
 )
 
 const version = "2.0.0-go"
 
-// Server serves REST, SSE, and the embedded React SPA.
-type Server struct {
-	mode     appmode.Mode
-	cfg      config.Config
-	store      *store.SnapshotStore
-	registry   *hub.Registry
-	containers docker.ContainerSource
-	logger     *slog.Logger
-	sse      *sseHub
+// Deps bundles HTTP server dependencies.
+type Deps struct {
+	Mode         appmode.Mode
+	Config       config.Config
+	MetricsStore *store.SnapshotStore
+	Registry     *hub.Registry
+	Containers   docker.ContainerSource
+	AlertEngine  *alert.Engine
+	AlertConfig  *alert.ConfigStore
+	DiagEngine   *diagnostic.Engine
+	History      *history.Store
+	HubStats     *hub.Stats
+	Logger       *slog.Logger
 }
 
-func NewServer(mode appmode.Mode, cfg config.Config, metricsStore *store.SnapshotStore, registry *hub.Registry, containers docker.ContainerSource, logger *slog.Logger) *Server {
+// Server serves REST, SSE, and the embedded React SPA.
+type Server struct {
+	deps           Deps
+	hubIngestToken string
+	sse            *sseHub
+}
+
+func NewServer(deps Deps) *Server {
 	s := &Server{
-		mode:       mode,
-		cfg:        cfg,
-		store:      metricsStore,
-		registry:   registry,
-		containers: containers,
-		logger:     logger,
-		sse:        newSSEHub(),
+		deps:           deps,
+		hubIngestToken: deps.Config.HubIngestToken,
+		sse:            newSSEHub(),
 	}
-	if metricsStore != nil {
-		metricsStore.AddListener(s.sse.broadcast)
+	if deps.MetricsStore != nil {
+		deps.MetricsStore.AddListener(s.sse.broadcast)
 	}
 	return s
 }
@@ -60,8 +70,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/containers/", s.handleContainerMetrics)
 	mux.HandleFunc("/api/v1/ingest", s.handleIngest)
 	mux.HandleFunc("/api/v1/agents", s.handleAgentsList)
-	mux.HandleFunc("/api/v1/agents/", s.handleAgentByID)
+	mux.HandleFunc("/api/v1/agents/", s.handleAgentRoutes)
 	mux.HandleFunc("/api/v1/hub/config", s.handleHubConfig)
+	mux.HandleFunc("/api/v1/hub/alert-config", s.handleHubAlertConfig)
+	mux.HandleFunc("/api/v1/hub/stats", s.handleHubStats)
+	mux.HandleFunc("/api/v1/alerts", s.handleAlerts)
 
 	static := webui.Handler()
 	mux.Handle("/", spaHandler(static))
@@ -75,7 +88,7 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{
-		"mode":    string(s.mode),
+		"mode":    string(s.deps.Mode),
 		"version": version,
 	})
 }
@@ -85,11 +98,11 @@ func (s *Server) handleCurrent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.store == nil {
+	if s.deps.MetricsStore == nil {
 		http.Error(w, "no content", http.StatusNoContent)
 		return
 	}
-	snap, ok := s.store.Latest()
+	snap, ok := s.deps.MetricsStore.Latest()
 	if !ok {
 		http.Error(w, "no content", http.StatusNoContent)
 		return
@@ -103,11 +116,11 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := queryInt(r, "limit", 60)
-	if s.store == nil {
+	if s.deps.MetricsStore == nil {
 		writeJSON(w, []payload.Snapshot{})
 		return
 	}
-	writeJSON(w, s.store.History(limit))
+	writeJSON(w, s.deps.MetricsStore.History(limit))
 }
 
 func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +128,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	s.sse.serve(w, r, s.store)
+	s.sse.serve(w, r, s.deps.MetricsStore)
 }
 
 func (s *Server) handleMetricsConfig(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +139,7 @@ func (s *Server) handleMetricsConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"defaultLocale":   "en",
 		"locales":         []string{"en", "tr"},
-		"refreshInterval": int(s.cfg.MetricsCollectionPeriod.Milliseconds()),
+		"refreshInterval": int(s.deps.Config.MetricsCollectionPeriod.Milliseconds()),
 		"historySize":     120,
 	})
 }
@@ -143,11 +156,11 @@ func (s *Server) handleContainerMetrics(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	containerID := parts[0]
-	if _, ok := s.containers.FindByID(containerID); !ok {
+	if _, ok := s.findContainer(containerID); !ok {
 		http.Error(w, "container not found", http.StatusNotFound)
 		return
 	}
-	if base := s.containers.AgentURL(containerID); base != "" {
+	if base := s.deps.Containers.AgentURL(containerID); base != "" {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/metrics/current", nil)
@@ -163,16 +176,35 @@ func (s *Server) handleContainerMetrics(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 	}
-	if s.store == nil {
+	if s.deps.MetricsStore == nil {
 		http.Error(w, "no content", http.StatusNoContent)
 		return
 	}
-	snap, ok := s.store.Latest()
+	snap, ok := s.deps.MetricsStore.Latest()
 	if !ok {
 		http.Error(w, "no content", http.StatusNoContent)
 		return
 	}
 	writeJSON(w, snap)
+}
+
+func (s *Server) findContainer(id string) (payload.ContainerInfo, bool) {
+	if info, ok := s.deps.Containers.FindByID(id); ok {
+		return info, true
+	}
+	if s.deps.MetricsStore == nil {
+		return payload.ContainerInfo{}, false
+	}
+	snap, ok := s.deps.MetricsStore.Latest()
+	if !ok {
+		return payload.ContainerInfo{}, false
+	}
+	for _, c := range snap.Payload.Containers {
+		if c.ID == id || strings.HasPrefix(c.ID, id) || strings.HasPrefix(id, c.ID) {
+			return c, true
+		}
+	}
+	return payload.ContainerInfo{}, false
 }
 
 type ingestBody struct {
@@ -186,26 +218,74 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.registry == nil {
+	if s.deps.Registry == nil {
 		http.Error(w, "hub not enabled", http.StatusServiceUnavailable)
+		return
+	}
+	if s.hubIngestToken != "" && !ingestTokenValid(r, s.hubIngestToken) {
+		if s.deps.HubStats != nil {
+			s.deps.HubStats.RecordIngestError()
+		}
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20))
 	if err != nil {
+		if s.deps.HubStats != nil {
+			s.deps.HubStats.RecordIngestError()
+		}
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	var req ingestBody
 	if err := json.Unmarshal(body, &req); err != nil {
+		if s.deps.HubStats != nil {
+			s.deps.HubStats.RecordIngestError()
+		}
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 	if req.AgentID == "" {
+		if s.deps.HubStats != nil {
+			s.deps.HubStats.RecordIngestError()
+		}
 		http.Error(w, "agentId required", http.StatusBadRequest)
 		return
 	}
-	s.registry.Ingest(req.AgentID, req.Hostname, req.Snapshot)
+
+	prev, hadPrev := s.deps.Registry.Latest(req.AgentID)
+	s.deps.Registry.Ingest(req.AgentID, req.Hostname, req.Snapshot)
+	if s.deps.HubStats != nil {
+		s.deps.HubStats.RecordIngestOK()
+	}
+
+	if s.deps.History != nil {
+		agentID := req.AgentID
+		snap := req.Snapshot
+		go func() { _ = s.deps.History.WriteSample(agentID, snap) }()
+	}
+
+	if s.deps.AlertEngine != nil {
+		s.deps.AlertEngine.OnIngest(req.AgentID, req.Hostname, req.Snapshot)
+	}
+
+	if s.deps.DiagEngine != nil {
+		var prevPtr *payload.Snapshot
+		if hadPrev {
+			prevPtr = &prev
+		}
+		_ = s.deps.DiagEngine.Evaluate(req.AgentID, req.Snapshot, prevPtr)
+	}
+
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func ingestTokenValid(r *http.Request, expected string) bool {
+	auth := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+		return strings.TrimSpace(auth[7:]) == expected
+	}
+	return r.Header.Get("X-Ingest-Token") == expected
 }
 
 func (s *Server) handleAgentsList(w http.ResponseWriter, r *http.Request) {
@@ -213,44 +293,63 @@ func (s *Server) handleAgentsList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.registry == nil {
+	if s.deps.Registry == nil {
 		writeJSON(w, []hub.AgentSummary{})
 		return
 	}
-	writeJSON(w, s.registry.ListAgents())
+	writeJSON(w, s.deps.Registry.ListAgents())
 }
 
-func (s *Server) handleAgentByID(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAgentRoutes(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.registry == nil {
-		http.Error(w, "not found", http.StatusNotFound)
+	if s.deps.Registry == nil {
+		http.NotFound(w, r)
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/agents/")
 	parts := strings.Split(path, "/")
 	agentID := parts[0]
-	if agentID == "" {
-		http.NotFound(w, r)
-		return
-	}
-	if len(parts) == 1 {
+	if agentID == "" || len(parts) < 2 {
 		http.NotFound(w, r)
 		return
 	}
 	switch parts[1] {
 	case "current":
-		snap, ok := s.registry.Latest(agentID)
+		snap, ok := s.deps.Registry.Latest(agentID)
 		if !ok {
 			http.Error(w, "no content", http.StatusNoContent)
 			return
 		}
 		writeJSON(w, snap)
 	case "history":
+		from := r.URL.Query().Get("from")
+		to := r.URL.Query().Get("to")
+		resolution := r.URL.Query().Get("resolution")
 		limit := queryInt(r, "limit", 60)
-		writeJSON(w, s.registry.History(agentID, limit))
+		if s.deps.History != nil && (from != "" || to != "" || resolution != "") {
+			samples, err := s.deps.History.QuerySamplesWithResolution(agentID, from, to, resolution, limit)
+			if err != nil {
+				http.Error(w, "history error", http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, samples)
+			return
+		}
+		writeJSON(w, s.deps.Registry.History(agentID, limit))
+	case "diagnostics":
+		if s.deps.History == nil {
+			writeJSON(w, []history.Insight{})
+			return
+		}
+		insights, err := s.deps.History.ListInsights(agentID, queryInt(r, "limit", 50))
+		if err != nil {
+			http.Error(w, "diagnostics error", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, insights)
 	default:
 		http.NotFound(w, r)
 	}
@@ -261,10 +360,83 @@ func (s *Server) handleHubConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	staleAfterMs := int(float64(s.deps.Config.MetricsCollectionPeriod.Milliseconds()) * s.deps.Config.AlertsStaleMultiplier)
+	if s.deps.AlertConfig != nil {
+		staleAfterMs = int(s.deps.AlertConfig.StaleAfter(s.deps.Config.MetricsCollectionPeriod).Milliseconds())
+	}
 	writeJSON(w, map[string]any{
-		"historySize": 120,
-		"version":     version,
+		"historySize":          120,
+		"version":              version,
+		"collectionIntervalMs": int(s.deps.Config.MetricsCollectionPeriod.Milliseconds()),
+		"staleAfterMs":         staleAfterMs,
 	})
+}
+
+func (s *Server) handleHubAlertConfig(w http.ResponseWriter, r *http.Request) {
+	if s.deps.AlertConfig == nil {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, s.deps.AlertConfig.Get())
+	case http.MethodPut:
+		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		if err != nil {
+			http.Error(w, "read body", http.StatusBadRequest)
+			return
+		}
+		var req alert.ConfigSnapshot
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		updated := s.deps.AlertConfig.Update(req)
+		if s.deps.History != nil {
+			if err := s.deps.AlertConfig.Persist(s.deps.History); err != nil && s.deps.Logger != nil {
+				s.deps.Logger.Warn("alert config persist failed", "err", err)
+			}
+		}
+		writeJSON(w, updated)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleHubStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.deps.Registry == nil {
+		http.NotFound(w, r)
+		return
+	}
+	agentCount := len(s.deps.Registry.ListAgents())
+	snap := s.deps.HubStats.Snapshot(agentCount)
+	if s.deps.AlertEngine != nil {
+		snap.AlertQueueDepth = len(s.deps.AlertEngine.Pending())
+	}
+	writeJSON(w, snap)
+}
+
+func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.deps.History == nil {
+		writeJSON(w, []history.AlertRecord{})
+		return
+	}
+	agentID := r.URL.Query().Get("agentId")
+	limit := queryInt(r, "limit", 100)
+	records, err := s.deps.History.ListAlerts(agentID, limit)
+	if err != nil {
+		http.Error(w, "alerts error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, records)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -286,7 +458,6 @@ func queryInt(r *http.Request, key string, fallback int) int {
 	return n
 }
 
-// spaHandler serves static files and falls back to index.html for client routes.
 func spaHandler(static http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {

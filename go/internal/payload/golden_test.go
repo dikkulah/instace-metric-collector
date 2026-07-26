@@ -24,8 +24,8 @@ func TestGoldenMetricsPayloadRoundTrip(t *testing.T) {
 		t.Fatalf("unmarshal fixture: %v", err)
 	}
 
-	if p.CPULoad != 0.42 {
-		t.Fatalf("cpuLoad = %v, want 0.42", p.CPULoad)
+	if p.CPULoad != 42.0 {
+		t.Fatalf("cpuLoad = %v, want 42.0", p.CPULoad)
 	}
 	if p.UsedMemory != 600 || p.TotalMemory != 1000 {
 		t.Fatalf("memory = %d/%d, want 600/1000", p.UsedMemory, p.TotalMemory)
