@@ -1,13 +1,13 @@
-# Live reload for hub backend (used by make dev-watch).
+# Live reload for hub backend (used by make dev / make dev-watch).
+# UI embed: ensure_ui_embedded at dev start, or make dev-watch (Vite :5173).
 root = "."
 tmp_dir = "tmp/air-hub"
 
 [build]
-  cmd = "make ui-sync-dist && go build -o ./tmp/air-hub/hub ./cmd/hub"
+  cmd = "go build -o ./tmp/air-hub/hub ./cmd/hub"
   bin = "./tmp/air-hub/hub"
-  include_ext = ["go", "html", "js", "css"]
-  include_dir = ["internal/webui"]
-  exclude_dir = ["tmp", "bin", "web"]
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "bin", "web", "internal/webui"]
   delay = 400
 
 [log]

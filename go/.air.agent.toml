@@ -1,13 +1,12 @@
-# Live reload for push agent (used by make dev-watch).
+# Live reload for push agent (used by make dev / make dev-watch).
 root = "."
 tmp_dir = "tmp/air-agent"
 
 [build]
-  cmd = "make ui-sync-dist && go build -o ./tmp/air-agent/agent ./cmd/agent"
+  cmd = "go build -o ./tmp/air-agent/agent ./cmd/agent"
   bin = "./tmp/air-agent/agent"
-  include_ext = ["go", "html", "js", "css"]
-  include_dir = ["internal/webui"]
-  exclude_dir = ["tmp", "bin", "web"]
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "bin", "web", "internal/webui"]
   delay = 400
 
 [log]
