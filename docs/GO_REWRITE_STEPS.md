@@ -157,26 +157,31 @@ open http://localhost:8080/container-metrics?id=abc123def456&tab=overview
 
 ## G5 — Hub + push + alerts
 
-**Hedef:** `hub.html`, ingest, agent registry, webhook alerts.
+**Hedef:** Hub UI, ingest, agent registry, webhook alerts. **Durum:** implemented (Jul 2026).
 
-| # | Görev |
-|---|--------|
-| 5.1 | `cmd/hub` — `POST /api/v1/ingest`, agent list |
-| 5.2 | Agent push client (`METRICS_PUSH_*` env) |
-| 5.3 | Hub static + hub API |
-| 5.4 | Alert thresholds (CPU/RAM/container) — Java `AlertService` parity |
-| 5.5 | Contract test: ingest JSON = agent payload |
+| # | Görev | Done |
+|---|--------|------|
+| 5.1 | `cmd/hub` — `POST /api/v1/ingest`, agent list | [x] |
+| 5.2 | Agent push client (`METRICS_PUSH_*` env) | [x] |
+| 5.3 | Hub React route + hub API | [x] |
+| 5.4 | Alert thresholds (CPU/RAM/container/stale) | [x] |
+| 5.5 | Contract test: ingest JSON = agent payload | [ ] |
 
 ### Build / run (G5 exit)
 
 ```bash
-make build
-# Terminal 1:
-METRICS_HUB_ENABLED=true SERVER_PORT=8081 make run-hub
-# Terminal 2:
-METRICS_HUB_ENABLED=true METRICS_PUSH_URL=http://127.0.0.1:8081/api/v1/ingest make run
-open http://localhost:8081/hub.html
-curl -s http://localhost:8081/api/v1/agents | jq
+make -C go test
+# Terminal 1 — hub:
+METRICS_HUB_ENABLED=true METRICS_HUB_INGEST_TOKEN=dev \
+METRICS_ALERTS_WEBHOOK_URL=http://localhost:9999/hook \
+make -C go run-hub
+# Terminal 2 — agent:
+METRICS_PUSH_ENABLED=true \
+METRICS_PUSH_INGEST_URL=http://localhost:8080/api/v1/ingest \
+METRICS_PUSH_AUTH_TOKEN=dev METRICS_PUSH_AGENT_ID=local-agent \
+SERVER_PORT=8081 make -C go run-agent
+open http://localhost:8080/hub
+curl -s http://localhost:8080/api/v1/agents | jq
 ```
 
 ---
@@ -212,7 +217,7 @@ SQLite, tam payload ingest, retention profiles — [`HISTORY_ALERTS_DIAGNOSTICS_
 | Milestone | Durum |
 |-----------|--------|
 | Go cutover | ✅ Java kaldırıldı, `make run` = Go agent |
-| G5 hub push | Backlog |
+| G5 hub push | ✅ `internal/push` + `internal/alert` |
 | G7 history | Backlog |
 
 ---

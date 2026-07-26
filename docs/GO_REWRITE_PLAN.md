@@ -96,12 +96,14 @@ See [`GO_REWRITE_STEPS.md`](GO_REWRITE_STEPS.md) for per-phase **build / run / v
 
 ## Phase G5 — Hub + push + alerts
 
+**V12 gate:** User approval granted (Jul 2026 — G5 implementation mission).
+
 | Task | Done |
 |------|------|
-| Hub: `POST /api/v1/ingest`, agent registry | [ ] |
-| Agent push client (`metrics.push.*`) | [ ] |
-| `hub.html` + hub API | [ ] |
-| Webhook alerts (CPU/RAM/container thresholds) | [ ] |
+| Hub: `POST /api/v1/ingest`, agent registry | [x] |
+| Agent push client (`metrics.push.*`) | [x] |
+| `hub.html` + hub API | [x] |
+| Webhook alerts (CPU/RAM/container thresholds) | [x] |
 | Contract tests vs Java hub (optional dual-run) | [ ] |
 
 ---
@@ -110,11 +112,14 @@ See [`GO_REWRITE_STEPS.md`](GO_REWRITE_STEPS.md) for per-phase **build / run / v
 
 | Task | Done |
 |------|------|
-| Multi-stage Dockerfile (distroless or alpine + binary) | [ ] |
-| `docker-compose.yml` for agent + hub | [ ] |
-| Cross-compile: linux/amd64, linux/arm64, darwin, windows | [ ] |
-| Document Java deprecation timeline | [ ] |
+| Multi-stage Dockerfile + `docker-compose.yml` | [x] |
+| Cross-compile release (`make -C go release`) | [x] |
+| GitHub Release workflow + GHCR publish (tag `v*`) | [x] |
+| `tool/install_agent.sh` one-line install | [x] |
+| Hub ingest token (`METRICS_HUB_INGEST_TOKEN`) | [x] |
 | Tag `v2.0.0-go` when parity checklist complete | [ ] |
+
+Detay: [`COMPETITIVE_PLAN.md`](COMPETITIVE_PLAN.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md#releases)
 
 ---
 
@@ -124,11 +129,11 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 
 | Task | Done |
 |------|------|
-| `internal/history/` SQLite + migrations | [ ] |
-| Tier 0 `raw_samples`: `payload_json` NOT NULL + metadata | [ ] |
-| `metrics.history.profile` (`full` default, `standard`, `minimal`) | [ ] |
-| Hourly/daily rollup jobs (Tier 0 silinmeden önce) | [ ] |
-| History API: `GET /api/v1/agents/{id}/history` | [ ] |
+| `internal/history/` SQLite + migrations | [x] |
+| Tier 0 `raw_samples`: `payload_json` NOT NULL + metadata | [x] |
+| `metrics.history.profile` (`full` default, `standard`, `minimal`) | [x] |
+| Hourly/daily rollup jobs (Tier 0 silinmeden önce) | [x] hourly (G7b); daily [ ] |
+| History API: `GET /api/v1/agents/{id}/history?resolution=` | [x] |
 | (G7b) Normalized `process_samples` / `service_samples` / `container_samples` | [ ] |
 
 **Exit:** Ingest → tam JSON persist; `full` profile ile drill-down; prod `minimal` yalnızca retention kısar.
@@ -145,8 +150,8 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 | Mac/Linux/Win collectors | ✓ | G2 |
 | Docker containers | ✓ | G3 |
 | Dashboard + i18n | ✓ | G4 (React SPA F0–F7) |
-| Hub + push + alerts | ✓ | G5 |
-| Historic store (full payload) | — | G7 |
+| Hub + push + alerts | ✓ | G5 (done) |
+| Historic store (full payload) | — | G7 (Tier0 done) |
 | Actuator/health | ✓ | G6 (`/health` or `/live`) |
 | `make ci-fast` equivalent | ✓ | `make go-ci` |
 

@@ -251,6 +251,8 @@ Phase 7 `AlertService` → Phase 11’de `AlertEngine` + `NotificationDispatcher
 
 **Tanı motoru (kural tabanlı MVP, ML değil):**
 
+> **Not (Jul 2026):** AI tabanlı tanı (LLM özet, kök neden önerisi) MVP-4+ sonrasına ertelendi. Önce P12 kural motoru + tam history (G7b/P10) tamamlanır. Bkz. [`COMPETITIVE_PLAN.md`](COMPETITIVE_PLAN.md).
+
 | Insight tipi | Tetikleyici | Çıktı |
 |--------------|-------------|-------|
 | `CPU_SPIKE` | 5 dk içinde 2x artış | Top process listesi o anki snapshot’tan |
