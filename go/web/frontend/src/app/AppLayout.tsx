@@ -1,16 +1,18 @@
+import { useTranslation } from 'react-i18next'
 import { AppShell } from './AppShell'
 import { useMeta } from '../api/useMeta'
 import { useMetrics } from '../api/useMetrics'
 import { EmptyState } from '../components/EmptyState'
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const { meta, loading, error } = useMeta()
   const { live, lastUpdate } = useMetrics()
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <EmptyState message="Loading…" />
+        <EmptyState message={t('app.loading')} />
       </div>
     )
   }
@@ -18,7 +20,7 @@ export function AppLayout() {
   if (error || !meta) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
-        <EmptyState message={error ?? 'API unavailable'} />
+        <EmptyState message={error ?? t('app.apiUnavailable')} />
       </div>
     )
   }
@@ -26,8 +28,8 @@ export function AppLayout() {
   return (
     <AppShell
       mode={meta.mode}
-      live={live}
-      lastUpdate={lastUpdate}
+      live={meta.mode === 'hub' ? true : live}
+      lastUpdate={meta.mode === 'hub' ? null : lastUpdate}
       version={meta.version}
     />
   )

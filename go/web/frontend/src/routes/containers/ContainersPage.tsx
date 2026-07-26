@@ -1,29 +1,26 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMetricsContext } from '../../context/MetricsContext'
 import { useContainerMetrics } from '../../api/useContainerMetrics'
+import { useAgentHref, useIsHubAgentContext } from '../../hooks/useAgentBasePath'
 import { EmptyState } from '../../components/EmptyState'
 import { PillTabs } from '../../components/PillTabs'
 import { StatusPill } from '../../components/StatusPill'
 import { CopyButton } from '../../components/CopyButton'
 import { DefinitionList } from '../../components/DefinitionList'
 import { MetricCard } from '../../components/MetricCard'
+import { SearchInput } from '../../components/SearchInput'
 import { MetricsContext } from '../../context/MetricsContext'
+import { PageShell } from '../../components/layout/PageShell'
+import { MasterDetailLayout } from '../../components/layout/MasterDetailLayout'
+import { ScrollPane } from '../../components/layout/ScrollPane'
 import type { ContainerInfo } from '../../api/types'
 import { formatBytes, formatPercent, isAgentContainer } from '../../lib/format'
 import { ProcessesPage } from '../processes/ProcessesPage'
 import { ServicesPage } from '../services/ServicesPage'
 
 type Tab = 'overview' | 'processes' | 'services'
-
-function agentDashboardUrl(c: ContainerInfo): string | null {
-  for (const p of c.ports) {
-    const m = p.match(/^(\d+):8080\/tcp$/)
-    if (m) return `http://127.0.0.1:${m[1]}/`
-  }
-  return null
-}
 
 function ContainerRow({
   c,
@@ -40,8 +37,8 @@ function ContainerRow({
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full text-left p-4 border-b border-outline-variant/40 hover:bg-surface-high ${
-        selected ? 'bg-primary-container/15 border-l-2 border-l-primary' : ''
+      className={`w-full text-left p-4 border-b border-outline-variant/40 hover:bg-surface-high border-l-2 ${
+        selected ? 'bg-primary-container/15 border-l-primary' : 'border-l-transparent'
       }`}
     >
       <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -72,9 +69,13 @@ function ContainerRow({
 function ContainerOverview({
   c,
   agentMetrics,
+  onSelectPeer,
+  metricsPath,
 }: {
   c: ContainerInfo
   agentMetrics: ReturnType<typeof useContainerMetrics>
+  onSelectPeer: (id: string) => void
+  metricsPath: string
 }) {
   const { t } = useTranslation()
   const { snapshot: hostSnap } = useMetricsContext()
@@ -82,19 +83,21 @@ function ContainerOverview({
     (x) => x.composeProject && x.composeProject === c.composeProject && x.id !== c.id,
   )
   const agent = isAgentContainer(c)
-  const dashUrl = agentDashboardUrl(c)
   const m = agentMetrics.snapshot?.payload
 
   return (
     <div className="space-y-4">
       <DefinitionList
         items={[
-          { label: 'ID', value: <span className="flex items-center gap-2">{c.id.slice(0, 12)}… <CopyButton value={c.id} /></span> },
-          { label: 'Image', value: c.image },
-          { label: 'Status', value: c.status },
-          { label: 'Health', value: c.health || '—' },
-          { label: 'Restarts', value: String(c.restartCount) },
-          { label: 'Compose', value: `${c.composeProject || '—'} / ${c.composeService || '—'}` },
+          {
+            label: t('container.id'),
+            value: <span className="flex items-center gap-2">{c.id.slice(0, 12)}… <CopyButton value={c.id} /></span>,
+          },
+          { label: t('container.image'), value: c.image },
+          { label: t('table.status'), value: c.status },
+          { label: t('container.health'), value: c.health || '—' },
+          { label: t('table.restarts'), value: String(c.restartCount) },
+          { label: t('container.composeProject'), value: `${c.composeProject || '—'} / ${c.composeService || '—'}` },
         ]}
       />
       {agent && m && (
@@ -119,7 +122,13 @@ function ContainerOverview({
                 <tr key={p.id} className="border-t border-outline-variant/40">
                   <td className="py-2 mono">{p.name}</td>
                   <td className="py-2 text-right">
-                    <Link to={`/containers`} className="text-primary text-xs">{t('containers.detail.viewFull')}</Link>
+                    <button
+                      type="button"
+                      onClick={() => onSelectPeer(p.id)}
+                      className="text-primary text-xs hover:underline"
+                    >
+                      {t('containers.detail.viewFull')}
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -127,56 +136,63 @@ function ContainerOverview({
           </table>
         </section>
       )}
-      {agent && dashUrl && (
-        <a href={dashUrl} target="_blank" rel="noreferrer" className="inline-block text-sm text-primary hover:underline">
+      {agent && (
+        <Link to={metricsPath} className="inline-block text-sm text-primary hover:underline">
           {t('containers.detail.openAgentDashboard')}
-        </a>
+        </Link>
       )}
     </div>
   )
 }
 
-function ContainerDetail({ c }: { c: ContainerInfo }) {
+function ContainerDetail({
+  c,
+  onBack,
+  onSelectPeer,
+}: {
+  c: ContainerInfo
+  onBack?: () => void
+  onSelectPeer: (id: string) => void
+}) {
   const { t } = useTranslation()
   const agent = isAgentContainer(c)
+  const hubContext = useIsHubAgentContext()
+  const metricsPath = useAgentHref('container-metrics', { id: c.id })
   const [tab, setTab] = useState<Tab>('overview')
-  const agentMetrics = useContainerMetrics(agent ? c.id : null)
+  const agentMetrics = useContainerMetrics(agent && !hubContext ? c.id : null)
   const metricsCtx = agentMetrics.snapshot
     ? { snapshot: agentMetrics.snapshot, live: !agentMetrics.unavailable, lastUpdate: new Date(agentMetrics.snapshot.collectedAt) }
     : null
 
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
-      <div className="panel p-5 space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+    <div className="panel flex flex-col h-full min-h-0 overflow-hidden">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="lg:hidden text-sm text-primary hover:underline shrink-0 text-left px-4 pt-4"
+        >
+          {t('containers.mobile.back')}
+        </button>
+      )}
+      <div className="p-4 space-y-2 shrink-0 border-b border-outline-variant">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
             <StatusPill label={c.health || c.status} tone={c.health === 'healthy' ? 'success' : 'neutral'} pulse={c.status === 'running'} />
-            <h2 className="text-xl font-semibold mt-2 break-all">{c.name}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="mono text-xs text-on-surface-variant">{c.id}</span>
+            <h2 className="text-lg font-semibold mt-2 break-all">{c.name}</h2>
+            <div className="flex items-center gap-2 mt-1 min-w-0">
+              <span className="mono text-xs text-on-surface-variant truncate">{c.id}</span>
               <CopyButton value={c.id} />
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {agent && (
-              <>
-                <Link
-                  to={`/container-metrics?id=${encodeURIComponent(c.id)}`}
-                  className="px-3 py-2 rounded-lg bg-primary-container text-white text-sm hover:opacity-90"
-                >
-                  {t('containers.metrics.viewFull')}
-                </Link>
-                {agentDashboardUrl(c) && (
-                  <a
-                    href={agentDashboardUrl(c)!}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-2 rounded-lg border border-outline-variant text-sm hover:bg-surface-high"
-                  >
-                    {t('containers.detail.openAgentDashboard')}
-                  </a>
-                )}
-              </>
+            {agent && !hubContext && (
+              <Link
+                to={metricsPath}
+                className="px-3 py-2 rounded-lg bg-primary-container text-white text-sm hover:opacity-90"
+              >
+                {t('containers.detail.openAgentDashboard')}
+              </Link>
             )}
           </div>
         </div>
@@ -190,16 +206,18 @@ function ContainerDetail({ c }: { c: ContainerInfo }) {
           onChange={setTab}
         />
       </div>
-      <div className="flex-1 min-h-0 overflow-auto">
-        {tab === 'overview' && <ContainerOverview c={c} agentMetrics={agentMetrics} />}
+      <ScrollPane className="p-4">
+        {tab === 'overview' && (
+          <ContainerOverview c={c} agentMetrics={agentMetrics} onSelectPeer={onSelectPeer} metricsPath={metricsPath} />
+        )}
         {tab !== 'overview' && agent && metricsCtx ? (
           <MetricsContext.Provider value={metricsCtx}>
-            {tab === 'processes' ? <ProcessesPage /> : <ServicesPage />}
+            {tab === 'processes' ? <ProcessesPage surface="containerDetail" /> : <ServicesPage surface="containerDetail" />}
           </MetricsContext.Provider>
         ) : tab !== 'overview' ? (
           <EmptyState message={t('containers.tabs.noAgentMetrics')} />
         ) : null}
-      </div>
+      </ScrollPane>
     </div>
   )
 }
@@ -207,8 +225,11 @@ function ContainerDetail({ c }: { c: ContainerInfo }) {
 export function ContainersPage() {
   const { t } = useTranslation()
   const { snapshot } = useMetricsContext()
+  const [searchParams] = useSearchParams()
+  const initialId = searchParams.get('id')
   const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialId)
+  const [mobileDetail, setMobileDetail] = useState(!!initialId)
 
   const containers = snapshot?.payload.containers ?? []
   const filtered = useMemo(() => {
@@ -221,48 +242,68 @@ export function ContainersPage() {
 
   const selected = filtered.find((c) => c.id === selectedId) ?? filtered[0] ?? null
 
+  const selectContainer = (id: string) => {
+    setSelectedId(id)
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
+      setMobileDetail(true)
+    }
+  }
+
   if (!snapshot) return <EmptyState message={t('app.waiting')} />
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] gap-4">
-      <h1 className="text-2xl font-semibold">{t('containers.pageTitle')}</h1>
-      <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,55%)_minmax(0,45%)] gap-4 flex-1 min-h-0">
-        <div className="panel flex flex-col min-h-[280px] lg:min-h-0 overflow-hidden">
-          <div className="p-4 border-b border-outline-variant space-y-2">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('containers.search')}
-              className="w-full px-3 py-2 rounded-lg bg-surface-high border border-outline-variant text-sm"
-            />
-            <div className="text-xs text-on-surface-variant">
-              {t('containers.total', { count: filtered.length })}
-            </div>
-          </div>
-          <div className="overflow-y-auto flex-1">
-            {filtered.length === 0 ? (
-              <EmptyState message={t('containers.noMatch')} />
-            ) : (
-              filtered.map((c) => (
-                <ContainerRow
-                  key={c.id}
-                  c={c}
-                  selected={selected?.id === c.id}
-                  onSelect={() => setSelectedId(c.id)}
-                />
-              ))
-            )}
-          </div>
-        </div>
-        <div className="min-h-[320px] lg:min-h-0 overflow-hidden">
-          {selected ? (
-            <ContainerDetail c={selected} />
-          ) : (
-            <EmptyState message={t('containers.detail.pick')} />
-          )}
+  const master = (
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="p-4 border-b border-outline-variant space-y-2 shrink-0">
+        <SearchInput value={search} onChange={setSearch} placeholder={t('containers.search')} />
+        <div className="text-xs text-on-surface-variant">
+          {t('containers.total', { count: filtered.length })}
         </div>
       </div>
+      <ScrollPane>
+        {filtered.length === 0 ? (
+          <div className="flex items-center justify-center min-h-[12rem] p-8 text-sm text-on-surface-variant text-center">
+            {t('containers.noMatch')}
+          </div>
+        ) : (
+          filtered.map((c) => (
+            <ContainerRow
+              key={c.id}
+              c={c}
+              selected={selected?.id === c.id}
+              onSelect={() => selectContainer(c.id)}
+            />
+          ))
+        )}
+      </ScrollPane>
     </div>
+  )
+
+  const detail = selected ? (
+    <ContainerDetail
+      c={selected}
+      onBack={mobileDetail ? () => setMobileDetail(false) : undefined}
+      onSelectPeer={(id) => {
+        selectContainer(id)
+      }}
+    />
+  ) : (
+    <div className="panel h-full flex items-center justify-center p-8 text-center text-on-surface-variant text-sm">
+      {t('containers.detail.pick')}
+    </div>
+  )
+
+  return (
+    <PageShell title={t('containers.pageTitle')} variant="workbench">
+      <div className="h-full min-h-0 lg:hidden">
+        {mobileDetail && selected ? (
+          <div className="h-full min-h-0 overflow-hidden">{detail}</div>
+        ) : (
+          <div className="panel overflow-hidden flex flex-col h-full min-h-0">{master}</div>
+        )}
+      </div>
+      <div className="hidden lg:block h-full min-h-0">
+        <MasterDetailLayout surface="page" masterRatio="55/45" master={master} detail={detail} />
+      </div>
+    </PageShell>
   )
 }

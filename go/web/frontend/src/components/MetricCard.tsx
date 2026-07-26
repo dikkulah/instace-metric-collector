@@ -6,8 +6,12 @@ export function barTone(percent: number): 'success' | 'warning' | 'error' {
 
 const toneClass = {
   success: 'bg-tertiary',
-  warning: 'bg-yellow-400',
+  warning: 'bg-amber-400',
   error: 'bg-error',
+}
+
+export function barFillClass(percent: number): string {
+  return toneClass[barTone(percent)]
 }
 
 export function MetricCard({

@@ -33,6 +33,7 @@ body {
 
 #root {
   min-height: 100vh;
+  height: 100dvh;
 }
 
 .mono {
@@ -65,4 +66,38 @@ body {
 
 .status-breath {
   animation: status-breath 2s ease-in-out infinite;
+}
+
+/* Dark-theme scrollbars (Precision Ops) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-variant) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-surface-highest);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-outline);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.scroll-pane {
+  scrollbar-gutter: stable;
 }

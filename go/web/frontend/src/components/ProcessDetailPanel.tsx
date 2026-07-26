@@ -10,31 +10,37 @@ export function ProcessDetailPanel({
   services,
   processLinkPrefix: _processLinkPrefix = '/processes',
   serviceLinkPrefix = '/services',
+  compact = false,
 }: {
   p: ProcessInfo
   services: ServiceInfo[]
   processLinkPrefix?: string
   serviceLinkPrefix?: string
+  compact?: boolean
 }) {
   const { t } = useTranslation()
   const related = findServicesForProcess(p, services)
 
   return (
-    <div className="panel p-5 space-y-4 h-full overflow-auto">
-      <h2 className="text-lg font-semibold">{t('processes.detail.title')}</h2>
+    <div className={`panel space-y-4 h-full overflow-hidden flex flex-col min-w-0 ${compact ? 'p-4' : 'p-5'}`}>
+      <h2 className={`font-semibold shrink-0 ${compact ? 'text-base' : 'text-lg'}`}>{t('processes.detail.title')}</h2>
       <DefinitionList
         items={[
-          { label: 'PID', value: p.pid },
-          { label: 'User', value: p.user },
-          { label: 'CPU', value: `${p.cpuUsage.toFixed(1)}%` },
-          { label: 'Memory', value: `${p.memoryUsage.toFixed(1)}%` },
+          { label: t('table.pid'), value: p.pid },
+          { label: t('table.user'), value: p.user },
+          { label: t('table.cpu'), value: `${p.cpuUsage.toFixed(1)}%` },
+          { label: t('table.memory'), value: `${p.memoryUsage.toFixed(1)}%` },
         ]}
       />
-      <div>
-        <div className="label-caps mb-2">Command</div>
-        <pre className="mono text-xs bg-surface-high p-3 rounded-lg overflow-x-auto whitespace-pre-wrap">{p.command}</pre>
+      <div className="min-w-0">
+        <div className="label-caps mb-2">{t('processes.detail.command')}</div>
+        <pre className={`mono text-xs bg-surface-high p-3 rounded-lg overflow-hidden whitespace-pre-wrap break-all overflow-y-auto ${
+          compact ? 'max-h-28' : 'max-h-40'
+        }`}>
+          {p.command}
+        </pre>
       </div>
-      <div>
+      <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="label-caps mb-2">{t('processes.detail.relatedServices')}</div>
         <p className="text-xs text-on-surface-variant mb-2">{t('processes.detail.relatedServicesHint')}</p>
         {related.length === 0 ? (
@@ -42,10 +48,11 @@ export function ProcessDetailPanel({
         ) : (
           <ul className="space-y-2">
             {related.map(({ service, likely }) => (
-              <li key={service.serviceName}>
+              <li key={service.serviceName} className="min-w-0">
                 <Link
                   to={`${serviceLinkPrefix}?service=${encodeURIComponent(service.serviceName)}`}
-                  className="text-sm text-primary hover:underline mono"
+                  className="text-sm text-primary hover:underline mono block truncate"
+                  title={`${likely ? '~ ' : ''}${service.serviceName}`}
                 >
                   {likely ? `~ ${service.serviceName}` : service.serviceName}
                 </Link>
