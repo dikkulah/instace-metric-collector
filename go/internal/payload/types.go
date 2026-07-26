@@ -10,6 +10,7 @@ type MetricsPayload struct {
 	Containers           []ContainerInfo    `json:"containers"`
 	DiskUsage            []DiskUsageInfo    `json:"diskUsage"`
 	NetworkUsage         []NetworkUsageInfo `json:"networkUsage"`
+	ConnectivityProbes   []ConnectivityProbe `json:"connectivityProbes,omitempty"`
 	AvailableProcessors  int                `json:"availableProcessors"`
 	SystemLoadAverage    float64            `json:"systemLoadAverage"`
 }
@@ -52,6 +53,14 @@ type NetworkUsageInfo struct {
 	Name          string `json:"name"`
 	BytesReceived int64  `json:"bytesReceived"`
 	BytesSent     int64  `json:"bytesSent"`
+}
+
+// ConnectivityProbe reports reachability to a configured target (Phase 13, additive V6).
+type ConnectivityProbe struct {
+	Target    string `json:"target"`
+	OK        bool   `json:"ok"`
+	LatencyMs int64  `json:"latencyMs"`
+	Error     string `json:"error,omitempty"`
 }
 
 // Snapshot is the REST/SSE envelope (Java MetricsSnapshot).

@@ -1,5 +1,5 @@
 {
-  "cpuLoad": 0.42,
+  "cpuLoad": 42.0,
   "usedMemory": 600,
   "totalMemory": 1000,
   "processInfos": [
