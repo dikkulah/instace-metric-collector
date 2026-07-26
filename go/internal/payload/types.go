@@ -72,3 +72,18 @@ type Snapshot struct {
 	CollectedAt string         `json:"collectedAt"`
 	Payload     MetricsPayload `json:"payload"`
 }
+
+// AggregateMetricsPayload builds a rollup snapshot with CPU/memory averages only.
+// Slice fields are non-nil so JSON encodes [] instead of null (UI expects arrays).
+func AggregateMetricsPayload(cpuLoad float64, usedMemory, totalMemory int64) MetricsPayload {
+	return MetricsPayload{
+		CPULoad:      cpuLoad,
+		UsedMemory:   usedMemory,
+		TotalMemory:  totalMemory,
+		ProcessInfos: []ProcessInfo{},
+		ServiceInfos: []ServiceInfo{},
+		Containers:   []ContainerInfo{},
+		DiskUsage:    []DiskUsageInfo{},
+		NetworkUsage: []NetworkUsageInfo{},
+	}
+}

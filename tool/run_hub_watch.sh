@@ -6,6 +6,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/tool/make_helpers.sh"
 # shellcheck source=air_path.sh
 source "$ROOT/tool/air_path.sh"
+# shellcheck source=history_db_path.sh
+source "$ROOT/tool/history_db_path.sh"
+
+HISTORY_DB="$(resolve_history_db "$ROOT")"
 
 PORT="${SERVER_PORT:-8081}"
 
@@ -33,5 +37,6 @@ cd "$ROOT/go"
 exec env \
   METRICS_COLLECTION_INTERVAL=5000 \
   METRICS_UI_ENABLED=true \
+  METRICS_HISTORY_DB_PATH="$HISTORY_DB" \
   SERVER_PORT="$PORT" \
   air -c .air.hub.toml

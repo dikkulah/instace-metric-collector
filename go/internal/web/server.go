@@ -20,6 +20,7 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
+	"github.com/dikkulah/instance-metric-collector/go/internal/probe"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
 	"github.com/dikkulah/instance-metric-collector/go/internal/webui"
 )
@@ -34,8 +35,10 @@ type Deps struct {
 	Registry     *hub.Registry
 	Containers   docker.ContainerSource
 	AlertEngine   *alert.Engine
-	AlertConfig   *alert.ConfigStore
-	AlertSilences *alert.SilenceStore
+	AlertConfig        *alert.ConfigStore
+	NotificationConfig *alert.NotificationConfigStore
+	ProbeConfig        *probe.ConfigStore
+	AlertSilences      *alert.SilenceStore
 	DiagEngine    *diagnostic.Engine
 	History      *history.Store
 	HubStats     *hub.Stats
@@ -75,6 +78,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/agents/", s.handleAgentRoutes)
 	mux.HandleFunc("/api/v1/hub/config", s.handleHubConfig)
 	mux.HandleFunc("/api/v1/hub/alert-config", s.handleHubAlertConfig)
+	mux.HandleFunc("/api/v1/hub/notification-config", s.handleHubNotificationConfig)
+	mux.HandleFunc("/api/v1/hub/probe-config", s.handleHubProbeConfig)
 	mux.HandleFunc("/api/v1/hub/stats", s.handleHubStats)
 	mux.HandleFunc("/api/v1/alerts", s.handleAlertRoutes)
 	mux.HandleFunc("/api/v1/alerts/", s.handleAlertRoutes)
@@ -358,16 +363,33 @@ func (s *Server) handleAgentRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, s.deps.Registry.History(agentID, limit))
 	case "diagnostics":
-		if s.deps.History == nil {
-			writeJSON(w, []history.Insight{})
+		if len(parts) < 3 {
+			if s.deps.History == nil {
+				writeJSON(w, []history.Insight{})
+				return
+			}
+			insights, err := s.deps.History.ListInsights(agentID, queryInt(r, "limit", 50))
+			if err != nil {
+				http.Error(w, "diagnostics error", http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, insights)
 			return
 		}
-		insights, err := s.deps.History.ListInsights(agentID, queryInt(r, "limit", 50))
+		if s.deps.History == nil {
+			http.Error(w, "history unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		ins, err := s.deps.History.GetInsight(agentID, parts[2])
+		if errors.Is(err, history.ErrInsightNotFound) {
+			http.Error(w, "insight not found", http.StatusNotFound)
+			return
+		}
 		if err != nil {
 			http.Error(w, "diagnostics error", http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, insights)
+		writeJSON(w, ins)
 	default:
 		http.NotFound(w, r)
 	}
@@ -380,12 +402,29 @@ func (s *Server) handleHubConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	staleAfterMs := int(s.agentStaleAfter().Milliseconds())
 	offlineAfterMs := int(s.agentOfflineAfter().Milliseconds())
+	sustainedMs := int(s.deps.Config.AlertsSustainedWindow.Milliseconds())
+	if s.deps.AlertConfig != nil {
+		sustainedMs = int(s.deps.AlertConfig.SustainedWindow().Milliseconds())
+	}
+	historyBlock := map[string]any{
+		"enabled":       s.deps.History != nil,
+		"profile":       s.deps.Config.HistoryProfile,
+		"retentionDays": s.deps.Config.HistoryRetentionDays,
+		"dbPath":        s.deps.Config.HistoryDBPath,
+	}
+	if s.deps.History != nil {
+		if stats, err := s.deps.History.Stats(); err == nil {
+			historyBlock["stats"] = stats
+		}
+	}
 	writeJSON(w, map[string]any{
 		"historySize":          120,
 		"version":              version,
 		"collectionIntervalMs": int(s.deps.Config.MetricsCollectionPeriod.Milliseconds()),
 		"staleAfterMs":         staleAfterMs,
 		"offlineAfterMs":       offlineAfterMs,
+		"sustainedAfterMs":     sustainedMs,
+		"history":              historyBlock,
 	})
 }
 
@@ -409,6 +448,9 @@ func (s *Server) handleHubAlertConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updated := s.deps.AlertConfig.Update(req)
+		if s.deps.AlertEngine != nil {
+			s.deps.AlertEngine.SetSustainedWindow(s.deps.AlertConfig.SustainedWindow())
+		}
 		if s.deps.History != nil {
 			if err := s.deps.AlertConfig.Persist(s.deps.History); err != nil && s.deps.Logger != nil {
 				s.deps.Logger.Warn("alert config persist failed", "err", err)
@@ -450,11 +492,19 @@ func (s *Server) handleAlertRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(parts) == 1 && parts[0] == "silences" {
+		if r.Method == http.MethodDelete {
+			s.handleAlertSilenceRevoke(w, r)
+			return
+		}
 		s.handleAlertSilencesList(w, r)
 		return
 	}
 	if len(parts) == 2 && parts[1] == "ack" {
 		s.handleAlertAck(w, r, parts[0])
+		return
+	}
+	if len(parts) == 2 && parts[1] == "resolve" {
+		s.handleAlertResolve(w, r, parts[0])
 		return
 	}
 	http.NotFound(w, r)
@@ -470,8 +520,10 @@ func (s *Server) handleAlertsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	agentID := r.URL.Query().Get("agentId")
+	status := r.URL.Query().Get("status")
+	severity := r.URL.Query().Get("severity")
 	limit := queryInt(r, "limit", 100)
-	records, err := s.deps.History.ListAlerts(agentID, limit)
+	records, err := s.deps.History.ListAlerts(agentID, status, severity, limit)
 	if err != nil {
 		http.Error(w, "alerts error", http.StatusInternalServerError)
 		return
@@ -499,6 +551,31 @@ func (s *Server) handleAlertAck(w http.ResponseWriter, r *http.Request, alertID 
 	}
 	if err != nil {
 		http.Error(w, "ack error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, record)
+}
+
+func (s *Server) handleAlertResolve(w http.ResponseWriter, r *http.Request, alertID string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.deps.History == nil {
+		http.Error(w, "history unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	record, err := s.deps.History.ResolveAlert(alertID)
+	if errors.Is(err, history.ErrAlertNotFound) {
+		http.Error(w, "alert not found", http.StatusNotFound)
+		return
+	}
+	if errors.Is(err, history.ErrAlertNotResolvable) {
+		http.Error(w, "alert cannot be resolved", http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, "resolve error", http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, record)

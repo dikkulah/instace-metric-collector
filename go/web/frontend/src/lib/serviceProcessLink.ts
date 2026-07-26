@@ -63,3 +63,37 @@ export function findServicesForProcess(
 export function serviceDomainPath(serviceName: string): string[] {
   return serviceName.split(/[./]/).filter(Boolean)
 }
+
+/** Short display name for a launchd / systemd service id. */
+export function serviceLabel(serviceName: string): string {
+  const parts = serviceDomainPath(serviceName)
+  let leaf = parts[parts.length - 1] ?? serviceName
+  leaf = leaf.replace(/\.service$/i, '')
+  return leaf || serviceName
+}
+
+/** Executable or app name from a process command line. */
+export function processLabel(command: string, maxLen = 28): string {
+  const trimmed = command.trim()
+  if (!trimmed) return '—'
+
+  const tokens = trimmed.split(/\s+/).filter(Boolean)
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i]!
+    if (/\.(jar|app|exe)$/i.test(token)) {
+      return truncateDisplay(token.split('/').pop() ?? token, maxLen)
+    }
+  }
+
+  const exe = tokens[0] ?? trimmed
+  let base = exe.split('/').pop() ?? exe
+  base = base.replace(/\.(exe|jar|app)$/i, '')
+  return truncateDisplay(base || trimmed, maxLen)
+}
+
+function truncateDisplay(value: string, maxLen: number): string {
+  if (value.length <= maxLen) return value
+  const head = Math.ceil((maxLen - 1) / 2)
+  const tail = Math.floor((maxLen - 1) / 2)
+  return `${value.slice(0, head)}…${value.slice(-tail)}`
+}

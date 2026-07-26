@@ -236,7 +236,8 @@ rules:
 - [ ] Webhook payload v2 (backward compatible alanlar)
 - [x] Alert UI + i18n (liste + ACK)
 - [x] Unit test: rule evaluation, dedup
-- [ ] Silence window + ek kanallar (Slack/Discord/email) — **hub notifier only (V21)**
+- [x] Silence window — UI add; list/revoke planned ([P11 UI gaps](PLANS/P11-UI-GAPS-PLAN.md))
+- [x] Slack/Discord/email notifiers — env; **UI panel planned** ([P11 UI gaps](PLANS/P11-UI-GAPS-PLAN.md))
 
 ### Mevcut `AlertService` ile ilişki
 

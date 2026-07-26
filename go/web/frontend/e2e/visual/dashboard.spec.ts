@@ -19,7 +19,6 @@ test.describe('Dashboard', () => {
     const main = page.locator('main')
     await expect(main).toHaveScreenshot('dashboard-main.png', {
       mask: [liveIndicator(page)],
-      maxDiffPixelRatio: 0.03,
     })
   })
 })

@@ -28,6 +28,15 @@ METRICS_ALERTS_DISK_THRESHOLD=90
 METRICS_ALERTS_COOLDOWN=600000          # ms, default 10m
 METRICS_ALERTS_STALE_MULTIPLIER=2.0       # stale after 2× collection interval
 METRICS_HUB_OFFLINE_AFTER=24h             # offline after no push (default 24h)
+METRICS_ALERTS_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+METRICS_ALERTS_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+METRICS_ALERTS_SMTP_HOST=smtp.example.com
+METRICS_ALERTS_SMTP_PORT=587
+METRICS_ALERTS_SMTP_USER=alerts@example.com
+METRICS_ALERTS_SMTP_PASSWORD=secret
+METRICS_ALERTS_SMTP_FROM=alerts@example.com
+METRICS_ALERTS_SMTP_TO=ops@example.com,oncall@example.com
+METRICS_ALERTS_SUSTAINED_WINDOW=5m          # CPU/memory avg window (0 = instant)
 ```
 
 Env vars seed the initial threshold set on first hub start. After that, use **Hub → Alert thresholds** in the UI (`PUT /api/v1/hub/alert-config`). Values persist in `hub_settings` when `METRICS_HISTORY_ENABLED=true`.
@@ -97,8 +106,12 @@ Ingest auth: `Authorization: Bearer <token>` or `X-Ingest-Token` header when `ME
 | GET | `/api/v1/agents` | Agent summaries (catalog + live); fields `status`, `firstSeen` |
 | GET | `/api/v1/agents/{id}/current` | Latest snapshot (registry or SQLite fallback); `X-Agent-Status` header |
 | GET | `/api/v1/agents/{id}/history?limit=60` | Ring buffer history |
-| GET | `/api/v1/hub/config` | Hub UI settings (`staleAfterMs`, `offlineAfterMs`, collection period) |
-| GET | `/api/v1/hub/alert-config` | Alert + diagnostic thresholds |
+| GET | `/api/v1/hub/config` | Hub UI settings (`staleAfterMs`, `offlineAfterMs`, `history` metadata) |
+| GET | `/api/v1/hub/notification-config` | Notification channels status + SMTP (non-secret) |
+| PUT | `/api/v1/hub/notification-config` | Update hub SMTP settings (when not env-locked) |
+| GET | `/api/v1/hub/probe-config` | Connectivity probe targets (env or hub reference) |
+| PUT | `/api/v1/hub/probe-config` | Update hub probe list (when env not set) |
+| DELETE | `/api/v1/alerts/silences?agentId=&ruleId=` | Revoke an active silence |
 | PUT | `/api/v1/hub/alert-config` | Update thresholds (persisted when history enabled) |
 
 ## Alert webhook payload
@@ -120,10 +133,12 @@ Alert types: `CPU_HIGH`, `MEMORY_HIGH`, `DISK_HIGH`, `CONTAINER_EXITED`, `CONTAI
 
 ```bash
 METRICS_HISTORY_ENABLED=true
-METRICS_HISTORY_DB_PATH=metrics-history.db
+METRICS_HISTORY_DB_PATH=data/metrics-history.db   # dev scripts use repo-root/data/ (absolute path)
 METRICS_HISTORY_PROFILE=full
 METRICS_HISTORY_RETENTION_DAYS=30
 ```
+
+Local dev (`make dev-watch`, `make run-hub`) sets `METRICS_HISTORY_DB_PATH` to `<repo>/data/metrics-history.db` so history survives restarts regardless of process cwd. Without this, `metrics-history.db` relative to cwd creates duplicate DBs (e.g. repo root vs `go/`). Merge legacy files: `bash tool/merge_history_dbs.sh`.
 
 API: `GET /api/v1/agents/{id}/history?from=&to=&limit=` (SQLite when `from`/`to` set)
 
@@ -134,8 +149,10 @@ Persistent agent catalog (`hub_agents`) keeps known agents visible after hub res
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/hub/stats` | Ingest/alert counters |
-| GET | `/api/v1/alerts` | Alert event history |
+| GET | `/api/v1/alerts` | Alert event history (`?status=OPEN|ACK|RESOLVED`) |
+| POST | `/api/v1/alerts/{id}/resolve` | Manually resolve an OPEN or ACK alert |
 | GET | `/api/v1/agents/{id}/diagnostics` | Diagnostic insights |
+| GET | `/api/v1/agents/{id}/diagnostics/{insightId}` | Single insight detail |
 
 ## Connectivity probes (Phase 13)
 

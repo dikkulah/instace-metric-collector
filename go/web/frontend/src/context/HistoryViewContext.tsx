@@ -1,4 +1,9 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  clampHistorySampleLimit,
+  loadHistorySampleLimit,
+  saveHistorySampleLimit,
+} from '../lib/historyPreferences'
 
 export type ViewMode = 'live' | 'history'
 export type HistoryTimeRange = '1h' | '6h' | '24h' | '7d'
@@ -8,6 +13,8 @@ export interface HistoryViewState {
   setViewMode: (mode: ViewMode) => void
   timeRange: HistoryTimeRange
   setTimeRange: (range: HistoryTimeRange) => void
+  sampleLimit: number
+  setSampleLimit: (limit: number) => void
 }
 
 const HistoryViewContext = createContext<HistoryViewState | null>(null)
@@ -15,10 +22,17 @@ const HistoryViewContext = createContext<HistoryViewState | null>(null)
 export function HistoryViewProvider({ children }: { children: ReactNode }) {
   const [viewMode, setViewMode] = useState<ViewMode>('live')
   const [timeRange, setTimeRange] = useState<HistoryTimeRange>('24h')
+  const [sampleLimit, setSampleLimitState] = useState(loadHistorySampleLimit)
+
+  const setSampleLimit = useCallback((limit: number) => {
+    const next = clampHistorySampleLimit(limit)
+    setSampleLimitState(next)
+    saveHistorySampleLimit(next)
+  }, [])
 
   const value = useMemo(
-    () => ({ viewMode, setViewMode, timeRange, setTimeRange }),
-    [viewMode, timeRange],
+    () => ({ viewMode, setViewMode, timeRange, setTimeRange, sampleLimit, setSampleLimit }),
+    [viewMode, timeRange, sampleLimit, setSampleLimit],
   )
 
   return <HistoryViewContext.Provider value={value}>{children}</HistoryViewContext.Provider>

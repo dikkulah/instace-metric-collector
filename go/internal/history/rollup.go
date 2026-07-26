@@ -3,6 +3,7 @@ package history
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
@@ -192,26 +193,150 @@ func (s *Store) QueryHourlyRollup(agentID, from, to string, limit int) ([]payloa
 		}
 		out = append(out, payload.Snapshot{
 			CollectedAt: hourStart,
-			Payload: payload.MetricsPayload{
-				CPULoad:     cpuAvg,
-				UsedMemory:  int64(memUsed),
-				TotalMemory: int64(memTotal),
-			},
+			Payload:     payload.AggregateMetricsPayload(cpuAvg, int64(memUsed), int64(memTotal)),
 		})
 		_ = cpuMax // reserved for future chart bands
 	}
 	return out, rows.Err()
 }
 
+// QueryHourlyFromRaw aggregates raw_samples into hourly buckets for the query window.
+func (s *Store) QueryHourlyFromRaw(agentID, from, to string, limit int) ([]payload.Snapshot, error) {
+	if s == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 500
+	}
+	q := `SELECT strftime('%Y-%m-%dT%H:00:00Z', datetime(collected_at)) AS hour_start,
+	             COUNT(*) AS sample_count,
+	             AVG(cpu_load) AS cpu_avg,
+	             MAX(cpu_load) AS cpu_max,
+	             AVG(used_memory) AS memory_used_avg,
+	             AVG(total_memory) AS memory_total_avg
+	      FROM raw_samples WHERE agent_id = ?`
+	args := []any{agentID}
+	if from != "" {
+		q += ` AND collected_at >= ?`
+		args = append(args, from)
+	}
+	if to != "" {
+		q += ` AND collected_at <= ?`
+		args = append(args, to)
+	}
+	q += ` GROUP BY hour_start ORDER BY hour_start DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []payload.Snapshot
+	for rows.Next() {
+		var hourStart string
+		var sampleCnt int
+		var cpuAvg, cpuMax, memUsed, memTotal float64
+		if err := rows.Scan(&hourStart, &sampleCnt, &cpuAvg, &cpuMax, &memUsed, &memTotal); err != nil {
+			return nil, err
+		}
+		_ = sampleCnt
+		out = append(out, payload.Snapshot{
+			CollectedAt: hourStart,
+			Payload:     payload.AggregateMetricsPayload(cpuAvg, int64(memUsed), int64(memTotal)),
+		})
+	}
+	return out, rows.Err()
+}
+
+func mergeHourlySnapshots(rollup, fromRaw []payload.Snapshot, limit int) []payload.Snapshot {
+	if limit <= 0 {
+		limit = 500
+	}
+	byHour := make(map[string]payload.Snapshot, len(rollup)+len(fromRaw))
+	for _, snap := range rollup {
+		byHour[snap.CollectedAt] = snap
+	}
+	for _, snap := range fromRaw {
+		byHour[snap.CollectedAt] = snap
+	}
+	keys := make([]string, 0, len(byHour))
+	for k := range byHour {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	// newest first
+	for i, j := 0, len(keys)-1; i < j; i, j = i+1, j-1 {
+		keys[i], keys[j] = keys[j], keys[i]
+	}
+	if len(keys) > limit {
+		keys = keys[:limit]
+	}
+	out := make([]payload.Snapshot, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, byHour[k])
+	}
+	return out
+}
+
+// shouldUseRawInsteadOfHourly returns true when hourly buckets are too sparse vs raw (e.g. 7d view on a fresh hub).
+func shouldUseRawInsteadOfHourly(hourly, raw []payload.Snapshot) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	if len(hourly) == 0 {
+		return true
+	}
+	if len(hourly) <= 4 && len(raw) >= 10 && len(raw) > len(hourly)*2 {
+		return true
+	}
+	return false
+}
+
+func (s *Store) queryHourlyMerged(agentID, from, to string, limit int) ([]payload.Snapshot, error) {
+	fromRaw, err := s.QueryHourlyFromRaw(agentID, from, to, limit)
+	if err != nil {
+		return nil, err
+	}
+	rollup, err := s.QueryHourlyRollup(agentID, from, to, limit)
+	if err != nil {
+		return nil, err
+	}
+	return mergeHourlySnapshots(rollup, fromRaw, limit), nil
+}
+
 // QuerySamplesWithResolution routes to raw or hourly store per ADR-012.
+// When rollup tables are empty (e.g. fresh hub), falls back to raw_samples so UI ranges still work.
 func (s *Store) QuerySamplesWithResolution(agentID, from, to, resolution string, limit int) ([]payload.Snapshot, error) {
 	switch resolution {
 	case "", "raw":
 		return s.QuerySamples(agentID, from, to, limit)
 	case "hourly":
-		return s.QueryHourlyRollup(agentID, from, to, limit)
+		merged, err := s.queryHourlyMerged(agentID, from, to, limit)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := s.QuerySamples(agentID, from, to, limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(merged) == 0 {
+			return raw, nil
+		}
+		if shouldUseRawInsteadOfHourly(merged, raw) {
+			return raw, nil
+		}
+		return merged, nil
 	case "daily":
-		return s.QueryDailyRollup(agentID, from, to, limit)
+		out, err := s.QueryDailyRollup(agentID, from, to, limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(out) == 0 {
+			return s.QuerySamples(agentID, from, to, limit)
+		}
+		return out, nil
 	default:
 		return nil, fmt.Errorf("unsupported resolution: %s", resolution)
 	}

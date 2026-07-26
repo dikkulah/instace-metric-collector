@@ -21,8 +21,9 @@ const (
 )
 
 var (
-	ErrAlertNotFound   = errors.New("alert not found")
-	ErrAlertNotAckable = errors.New("alert cannot be acknowledged")
+	ErrAlertNotFound      = errors.New("alert not found")
+	ErrAlertNotAckable    = errors.New("alert cannot be acknowledged")
+	ErrAlertNotResolvable = errors.New("alert cannot be resolved")
 )
 
 const schema = `
@@ -131,6 +132,7 @@ func (s *Store) WriteSample(agentID string, snap payload.Snapshot) error {
 }
 
 // QuerySamples returns snapshots in [from, to] up to limit.
+// With a time range, samples are spread evenly across the window (not only the newest).
 func (s *Store) QuerySamples(agentID, from, to string, limit int) ([]payload.Snapshot, error) {
 	if s == nil {
 		return nil, nil
@@ -138,6 +140,19 @@ func (s *Store) QuerySamples(agentID, from, to string, limit int) ([]payload.Sna
 	if limit <= 0 {
 		limit = 500
 	}
+	if from != "" || to != "" {
+		return s.querySamplesInRangeDownsampled(agentID, from, to, limit)
+	}
+	q := `SELECT collected_at, payload_json FROM raw_samples WHERE agent_id = ?`
+	args := []any{agentID}
+	q += ` ORDER BY collected_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	return s.scanSnapshots(q, args...)
+}
+
+func (s *Store) querySamplesInRangeDownsampled(agentID, from, to string, limit int) ([]payload.Snapshot, error) {
+	const maxFetch = 20_000
 	q := `SELECT collected_at, payload_json FROM raw_samples WHERE agent_id = ?`
 	args := []any{agentID}
 	if from != "" {
@@ -148,9 +163,36 @@ func (s *Store) QuerySamples(agentID, from, to string, limit int) ([]payload.Sna
 		q += ` AND collected_at <= ?`
 		args = append(args, to)
 	}
-	q += ` ORDER BY collected_at DESC LIMIT ?`
-	args = append(args, limit)
+	q += ` ORDER BY collected_at ASC LIMIT ?`
+	args = append(args, maxFetch)
 
+	all, err := s.scanSnapshots(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	return downsampleSnapshots(all, limit), nil
+}
+
+func downsampleSnapshots(samples []payload.Snapshot, limit int) []payload.Snapshot {
+	if len(samples) == 0 || limit <= 0 {
+		return samples
+	}
+	if len(samples) <= limit {
+		return samples
+	}
+	if limit == 1 {
+		return []payload.Snapshot{samples[len(samples)-1]}
+	}
+	out := make([]payload.Snapshot, limit)
+	denom := limit - 1
+	for i := 0; i < limit; i++ {
+		idx := (i * (len(samples) - 1)) / denom
+		out[i] = samples[idx]
+	}
+	return out
+}
+
+func (s *Store) scanSnapshots(q string, args ...any) ([]payload.Snapshot, error) {
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
@@ -190,19 +232,27 @@ func (s *Store) SaveAlertEvent(ev alert.Event, status string) error {
 	return err
 }
 
-// ListAlerts returns recent alert events.
-func (s *Store) ListAlerts(agentID string, limit int) ([]AlertRecord, error) {
+// ListAlerts returns recent alert events with optional filters.
+func (s *Store) ListAlerts(agentID, status, severity string, limit int) ([]AlertRecord, error) {
 	if s == nil {
 		return nil, nil
 	}
 	if limit <= 0 {
 		limit = 100
 	}
-	q := `SELECT id, agent_id, rule_id, severity, status, fired_at, details_json FROM alert_events`
+	q := `SELECT id, agent_id, rule_id, severity, status, fired_at, resolved_at, details_json FROM alert_events WHERE 1=1`
 	args := []any{}
 	if agentID != "" {
-		q += ` WHERE agent_id = ?`
+		q += ` AND agent_id = ?`
 		args = append(args, agentID)
+	}
+	if status != "" {
+		q += ` AND status = ?`
+		args = append(args, status)
+	}
+	if severity != "" {
+		q += ` AND severity = ?`
+		args = append(args, severity)
 	}
 	q += ` ORDER BY fired_at DESC LIMIT ?`
 	args = append(args, limit)
@@ -216,8 +266,12 @@ func (s *Store) ListAlerts(agentID string, limit int) ([]AlertRecord, error) {
 	for rows.Next() {
 		var r AlertRecord
 		var details string
-		if err := rows.Scan(&r.ID, &r.AgentID, &r.RuleID, &r.Severity, &r.Status, &r.FiredAt, &details); err != nil {
+		var resolvedAt sql.NullString
+		if err := rows.Scan(&r.ID, &r.AgentID, &r.RuleID, &r.Severity, &r.Status, &r.FiredAt, &resolvedAt, &details); err != nil {
 			return nil, err
+		}
+		if resolvedAt.Valid {
+			r.ResolvedAt = resolvedAt.String
 		}
 		_ = json.Unmarshal([]byte(details), &r.Details)
 		out = append(out, r)
@@ -225,21 +279,37 @@ func (s *Store) ListAlerts(agentID string, limit int) ([]AlertRecord, error) {
 	return out, rows.Err()
 }
 
-// AcknowledgeAlert transitions an OPEN alert to ACK.
-func (s *Store) AcknowledgeAlert(id string) (AlertRecord, error) {
+func (s *Store) loadAlertByID(id string) (AlertRecord, error) {
 	if s == nil {
 		return AlertRecord{}, ErrAlertNotFound
 	}
 	var r AlertRecord
 	var details string
+	var resolvedAt sql.NullString
 	err := s.db.QueryRow(`
-		SELECT id, agent_id, rule_id, severity, status, fired_at, details_json
+		SELECT id, agent_id, rule_id, severity, status, fired_at, resolved_at, details_json
 		FROM alert_events WHERE id = ?`, id).Scan(
-		&r.ID, &r.AgentID, &r.RuleID, &r.Severity, &r.Status, &r.FiredAt, &details,
+		&r.ID, &r.AgentID, &r.RuleID, &r.Severity, &r.Status, &r.FiredAt, &resolvedAt, &details,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AlertRecord{}, ErrAlertNotFound
 	}
+	if err != nil {
+		return AlertRecord{}, err
+	}
+	if resolvedAt.Valid {
+		r.ResolvedAt = resolvedAt.String
+	}
+	_ = json.Unmarshal([]byte(details), &r.Details)
+	return r, nil
+}
+
+// AcknowledgeAlert transitions an OPEN alert to ACK.
+func (s *Store) AcknowledgeAlert(id string) (AlertRecord, error) {
+	if s == nil {
+		return AlertRecord{}, ErrAlertNotFound
+	}
+	r, err := s.loadAlertByID(id)
 	if err != nil {
 		return AlertRecord{}, err
 	}
@@ -250,18 +320,58 @@ func (s *Store) AcknowledgeAlert(id string) (AlertRecord, error) {
 		return AlertRecord{}, err
 	}
 	r.Status = AlertStatusAck
-	_ = json.Unmarshal([]byte(details), &r.Details)
 	return r, nil
 }
 
+// ResolveAlert transitions an OPEN or ACK alert to RESOLVED.
+func (s *Store) ResolveAlert(id string) (AlertRecord, error) {
+	if s == nil {
+		return AlertRecord{}, ErrAlertNotFound
+	}
+	r, err := s.loadAlertByID(id)
+	if err != nil {
+		return AlertRecord{}, err
+	}
+	if r.Status != AlertStatusOpen && r.Status != AlertStatusAck {
+		return AlertRecord{}, ErrAlertNotResolvable
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := s.db.Exec(`UPDATE alert_events SET status = ?, resolved_at = ? WHERE id = ?`,
+		AlertStatusResolved, now, id); err != nil {
+		return AlertRecord{}, err
+	}
+	r.Status = AlertStatusResolved
+	r.ResolvedAt = now
+	return r, nil
+}
+
+// ResolveOpenAlerts marks OPEN/ACK alerts for an agent+rule as RESOLVED. Returns rows updated.
+func (s *Store) ResolveOpenAlerts(agentID, ruleID string) (int, error) {
+	if s == nil {
+		return 0, nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	res, err := s.db.Exec(`
+		UPDATE alert_events SET status = ?, resolved_at = ?
+		WHERE agent_id = ? AND rule_id = ? AND status IN (?, ?)`,
+		AlertStatusResolved, now, agentID, ruleID, AlertStatusOpen, AlertStatusAck,
+	)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 type AlertRecord struct {
-	ID       string         `json:"id"`
-	AgentID  string         `json:"agentId"`
-	RuleID   string         `json:"ruleId"`
-	Severity string         `json:"severity"`
-	Status   string         `json:"status"`
-	FiredAt  string         `json:"firedAt"`
-	Details  map[string]any `json:"details"`
+	ID         string         `json:"id"`
+	AgentID    string         `json:"agentId"`
+	RuleID     string         `json:"ruleId"`
+	Severity   string         `json:"severity"`
+	Status     string         `json:"status"`
+	FiredAt    string         `json:"firedAt"`
+	ResolvedAt string         `json:"resolvedAt,omitempty"`
+	Details    map[string]any `json:"details"`
 }
 
 // SaveInsight persists a diagnostic insight.
@@ -327,6 +437,30 @@ func (s *Store) ListInsights(agentID string, limit int) ([]Insight, error) {
 	return out, nil
 }
 
+var ErrInsightNotFound = errors.New("insight not found")
+
+// GetInsight returns a diagnostic insight by stable id for an agent.
+func (s *Store) GetInsight(agentID, insightID string) (Insight, error) {
+	if s == nil {
+		return Insight{}, ErrInsightNotFound
+	}
+	var ins Insight
+	var details string
+	err := s.db.QueryRow(`
+		SELECT id, agent_id, type, severity, detected_at, summary_key, details_json
+		FROM diagnostic_insights WHERE agent_id = ? AND id = ?`, agentID, insightID).Scan(
+		&ins.ID, &ins.AgentID, &ins.Type, &ins.Severity, &ins.DetectedAt, &ins.SummaryKey, &details,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Insight{}, ErrInsightNotFound
+	}
+	if err != nil {
+		return Insight{}, err
+	}
+	_ = json.Unmarshal([]byte(details), &ins.Details)
+	return ins, nil
+}
+
 // RunRetention rolls up completed hours then deletes expired raw samples.
 func (s *Store) RunRetention(ctx context.Context) error {
 	if s == nil || s.retentionDays <= 0 {
@@ -371,4 +505,37 @@ func (s *Store) SaveSetting(key string, value any) error {
 		key, string(raw), time.Now().UTC().Format(time.RFC3339Nano),
 	)
 	return err
+}
+
+// StoreStats summarizes Tier-0 history for hub ops UI.
+type StoreStats struct {
+	RawSampleCount int    `json:"rawSampleCount"`
+	OldestSample   string `json:"oldestSample,omitempty"`
+	NewestSample   string `json:"newestSample,omitempty"`
+	HourlyRows     int    `json:"hourlyRows"`
+}
+
+// Stats returns aggregate counts for the history SQLite store.
+func (s *Store) Stats() (StoreStats, error) {
+	if s == nil || s.db == nil {
+		return StoreStats{}, nil
+	}
+	var st StoreStats
+	var oldest, newest sql.NullString
+	err := s.db.QueryRow(`SELECT COUNT(*), MIN(collected_at), MAX(collected_at) FROM raw_samples`).Scan(
+		&st.RawSampleCount, &oldest, &newest,
+	)
+	if err != nil {
+		return st, err
+	}
+	if oldest.Valid {
+		st.OldestSample = oldest.String
+	}
+	if newest.Valid {
+		st.NewestSample = newest.String
+	}
+	if err := s.ensureRollupSchema(); err == nil {
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM hourly_rollup`).Scan(&st.HourlyRows)
+	}
+	return st, nil
 }

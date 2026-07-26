@@ -154,6 +154,22 @@ export function HubAlertSettings() {
           disabled={!open}
           onChange={(v) => patch({ staleMultiplier: v })}
         />
+        <NumberField
+          label={t('hub.settings.sustainedWindowMinutes')}
+          value={values.sustainedWindowMinutes}
+          min={0}
+          max={1440}
+          disabled={!open}
+          onChange={(v) => patch({ sustainedWindowMinutes: v })}
+        />
+        <NumberField
+          label={t('hub.settings.offlineAfterHours')}
+          value={values.offlineAfterHours}
+          min={1}
+          max={720}
+          disabled={!open}
+          onChange={(v) => patch({ offlineAfterHours: v })}
+        />
       </div>
 
       <details className="text-sm" open={open}>

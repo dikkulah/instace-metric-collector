@@ -16,6 +16,7 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
+	"github.com/dikkulah/instance-metric-collector/go/internal/probe"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
 )
 
@@ -186,7 +187,7 @@ func TestHandleAlertAck(t *testing.T) {
 	if err := hist.SaveAlertEvent(ev, history.AlertStatusOpen); err != nil {
 		t.Fatal(err)
 	}
-	alerts, err := hist.ListAlerts("", 10)
+	alerts, err := hist.ListAlerts("", "", "", 10)
 	if err != nil || len(alerts) != 1 {
 		t.Fatalf("alerts = %+v err=%v", alerts, err)
 	}
@@ -215,6 +216,54 @@ func TestHandleAlertAck(t *testing.T) {
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("second ack status = %d", rec.Code)
+	}
+}
+
+func TestHandleAlertResolve(t *testing.T) {
+	dir := t.TempDir()
+	hist, err := history.Open(dir+"/test.db", "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hist.Close()
+
+	ev := alert.Event{
+		AgentID:   "a1",
+		AlertType: alert.AlertTypeCPUHigh,
+		Severity:  alert.SeverityWarning,
+	}
+	if err := hist.SaveAlertEvent(ev, history.AlertStatusOpen); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := hist.ListAlerts("", "", "", 10)
+	if err != nil || len(alerts) != 1 {
+		t.Fatalf("alerts = %+v err=%v", alerts, err)
+	}
+	alertID := alerts[0].ID
+
+	deps := testDeps(appmode.Hub, config.Config{}, nil, nil, nil)
+	deps.History = hist
+	srv := NewServer(deps)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/alerts/"+alertID+"/resolve", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var updated history.AlertRecord
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != history.AlertStatusResolved || updated.ResolvedAt == "" {
+		t.Fatalf("status = %+v", updated)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/alerts/"+alertID+"/resolve", nil)
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("second resolve status = %d", rec.Code)
 	}
 }
 
@@ -251,6 +300,64 @@ func TestHandleAlertSilence(t *testing.T) {
 	}
 	if len(listed) != 1 {
 		t.Fatalf("listed = %+v", listed)
+	}
+}
+
+func TestHandleDiagnosticsDetail(t *testing.T) {
+	dir := t.TempDir()
+	hist, err := history.Open(dir+"/test.db", "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hist.Close()
+
+	ins := history.Insight{
+		ID:         "a1|CPU_SPIKE",
+		AgentID:    "a1",
+		Type:       "CPU_SPIKE",
+		Severity:   "warning",
+		DetectedAt: time.Now().UTC().Format(time.RFC3339Nano),
+		SummaryKey: "diagnostics.cpuSpike",
+	}
+	if err := hist.SaveInsight(ins); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := hub.NewRegistry()
+	deps := testDeps(appmode.Hub, config.Config{}, reg, nil, nil)
+	deps.History = hist
+	srv := NewServer(deps)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/agents/a1/diagnostics/"+ins.ID, nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleHubProbeConfig(t *testing.T) {
+	probeStore := probe.LoadConfigStore(nil)
+	deps := testDeps(appmode.Hub, config.Config{}, hub.NewRegistry(), nil, nil)
+	deps.ProbeConfig = probeStore
+	srv := NewServer(deps)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/hub/probe-config", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get status = %d", rec.Code)
+	}
+
+	body, _ := json.Marshal(map[string]any{
+		"targetsText": "db:5432\nhttps://example.com",
+		"timeoutMs":   4000,
+	})
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/hub/probe-config", bytes.NewReader(body))
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

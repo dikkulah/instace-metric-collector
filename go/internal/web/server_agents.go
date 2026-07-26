@@ -14,6 +14,9 @@ func (s *Server) agentStaleAfter() time.Duration {
 }
 
 func (s *Server) agentOfflineAfter() time.Duration {
+	if s.deps.AlertConfig != nil {
+		return s.deps.AlertConfig.OfflineAfter(s.deps.Config.HubOfflineAfter)
+	}
 	if s.deps.Config.HubOfflineAfter > 0 {
 		return s.deps.Config.HubOfflineAfter
 	}

@@ -33,13 +33,21 @@ type Config struct {
 	HubOfflineAfter time.Duration
 
 	// Hub alerts (G5) — metrics.alerts.* parity
-	AlertsWebhookURL      string
-	AlertsSlackWebhookURL string
+	AlertsWebhookURL        string
+	AlertsSlackWebhookURL   string
+	AlertsDiscordWebhookURL string
+	AlertsSMTPHost          string
+	AlertsSMTPPort          int
+	AlertsSMTPUser          string
+	AlertsSMTPPassword      string
+	AlertsSMTPFrom          string
+	AlertsSMTPTo            []string
 	AlertsCPUThreshold    float64
 	AlertsMemoryThreshold float64
 	AlertsDiskThreshold   float64
 	AlertsCooldown        time.Duration
 	AlertsStaleMultiplier float64
+	AlertsSustainedWindow time.Duration
 
 	// History (G7)
 	HistoryEnabled   bool
@@ -72,13 +80,21 @@ func Load() Config {
 		HubIngestToken: envString("METRICS_HUB_INGEST_TOKEN", ""),
 		HubOfflineAfter: envDuration("METRICS_HUB_OFFLINE_AFTER", 24*time.Hour),
 
-		AlertsWebhookURL:      envString("METRICS_ALERTS_WEBHOOK_URL", ""),
-		AlertsSlackWebhookURL: envString("METRICS_ALERTS_SLACK_WEBHOOK_URL", ""),
+		AlertsWebhookURL:        envString("METRICS_ALERTS_WEBHOOK_URL", ""),
+		AlertsSlackWebhookURL:   envString("METRICS_ALERTS_SLACK_WEBHOOK_URL", ""),
+		AlertsDiscordWebhookURL: envString("METRICS_ALERTS_DISCORD_WEBHOOK_URL", ""),
+		AlertsSMTPHost:          envString("METRICS_ALERTS_SMTP_HOST", ""),
+		AlertsSMTPPort:          envInt("METRICS_ALERTS_SMTP_PORT", 587),
+		AlertsSMTPUser:          envString("METRICS_ALERTS_SMTP_USER", ""),
+		AlertsSMTPPassword:      envString("METRICS_ALERTS_SMTP_PASSWORD", ""),
+		AlertsSMTPFrom:          envString("METRICS_ALERTS_SMTP_FROM", ""),
+		AlertsSMTPTo:            envCSV("METRICS_ALERTS_SMTP_TO"),
 		AlertsCPUThreshold:    envFloat("METRICS_ALERTS_CPU_THRESHOLD", 90),
 		AlertsMemoryThreshold: envFloat("METRICS_ALERTS_MEMORY_THRESHOLD", 0.90),
 		AlertsDiskThreshold:   envFloat("METRICS_ALERTS_DISK_THRESHOLD", 90),
 		AlertsCooldown:        envDuration("METRICS_ALERTS_COOLDOWN", 10*time.Minute),
 		AlertsStaleMultiplier: envFloat("METRICS_ALERTS_STALE_MULTIPLIER", 2.0),
+		AlertsSustainedWindow: envDuration("METRICS_ALERTS_SUSTAINED_WINDOW", 5*time.Minute),
 
 		HistoryEnabled:       envBool("METRICS_HISTORY_ENABLED", true),
 		HistoryDBPath:        envString("METRICS_HISTORY_DB_PATH", "metrics-history.db"),
@@ -142,4 +158,19 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return d
 	}
 	return fallback
+}
+
+func envCSV(key string) []string {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

@@ -9,6 +9,8 @@ source "$ROOT/tool/make_helpers.sh"
 
 # shellcheck source=air_path.sh
 source "$ROOT/tool/air_path.sh"
+# shellcheck source=history_db_path.sh
+source "$ROOT/tool/history_db_path.sh"
 
 HUB_PORT="${HUB_PORT:-8081}"
 AGENT_PORT="${AGENT_PORT:-8080}"
@@ -19,6 +21,7 @@ AGENT_BIN="$ROOT/go/bin/agent"
 FRONTEND="$ROOT/go/web/frontend"
 AGENT_LOG="${TMPDIR:-/tmp}/imc-dev-agent.log"
 USE_AIR=false
+HISTORY_DB="$(resolve_history_db "$ROOT")"
 
 if air_on_path; then
   USE_AIR=true
@@ -61,6 +64,7 @@ start_hub() {
       env \
         METRICS_COLLECTION_INTERVAL=5000 \
         METRICS_UI_ENABLED=true \
+        METRICS_HISTORY_DB_PATH="$HISTORY_DB" \
         SERVER_PORT="$HUB_PORT" \
         air -c .air.hub.toml
     ) &
@@ -70,6 +74,7 @@ start_hub() {
       env \
         METRICS_COLLECTION_INTERVAL=5000 \
         METRICS_UI_ENABLED=true \
+        METRICS_HISTORY_DB_PATH="$HISTORY_DB" \
         SERVER_PORT="$HUB_PORT" \
         "$HUB_BIN"
     ) &

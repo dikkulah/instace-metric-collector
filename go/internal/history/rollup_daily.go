@@ -190,11 +190,7 @@ func (s *Store) QueryDailyRollup(agentID, from, to string, limit int) ([]payload
 		}
 		out = append(out, payload.Snapshot{
 			CollectedAt: dayStart,
-			Payload: payload.MetricsPayload{
-				CPULoad:     cpuAvg,
-				UsedMemory:  int64(memUsed),
-				TotalMemory: int64(memTotal),
-			},
+			Payload:     payload.AggregateMetricsPayload(cpuAvg, int64(memUsed), int64(memTotal)),
 		})
 		_ = cpuMax
 	}

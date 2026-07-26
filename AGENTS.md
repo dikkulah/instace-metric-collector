@@ -13,6 +13,7 @@ Council gate + domain rules in `.cursor/rules/`. **21 veto rules (V1–V21)** �
 - Dashboard UI via snapshot store + REST/SSE, not log parsing (V16–V19)
 - UI strings via locale JSON only — EN + TR (V20)
 - Agent must not strain the host — bounded collect path, hub-first heavy logic (V21, ADR-013)
+- **Backend ↔ UI parity** — user-facing API/config changes ship matching dashboard UI in the same task (see `.cursor/rules/backend-ui-parity.mdc`)
 
 ## Docs
 

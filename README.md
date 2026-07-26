@@ -187,6 +187,10 @@ Toggle **Live | History** in the header. Offline agents open in History automati
 | `METRICS_HUB_OFFLINE_AFTER` | `24h` | Mark agent offline |
 | `METRICS_ALERTS_WEBHOOK_URL` | — | Generic alert webhook |
 | `METRICS_ALERTS_SLACK_WEBHOOK_URL` | — | Slack incoming webhook |
+| `METRICS_ALERTS_DISCORD_WEBHOOK_URL` | — | Discord incoming webhook |
+| `METRICS_ALERTS_SMTP_HOST` | — | SMTP server for email alerts |
+| `METRICS_ALERTS_SMTP_TO` | — | Comma-separated recipient addresses |
+| `METRICS_ALERTS_SUSTAINED_WINDOW` | `5m` | CPU/memory must exceed threshold for this window (`0` = instant) |
 
 Full lists: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/HUB.md`](docs/HUB.md)
 

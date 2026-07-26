@@ -23,6 +23,8 @@ type ConfigSnapshot struct {
 	MemoryPressurePercent   float64 `json:"memoryPressurePercent"`
 	DiskFillingPercent      float64 `json:"diskFillingPercent"`
 	ContainerRestartCount   int     `json:"containerRestartCount"`
+	SustainedWindowMinutes  int     `json:"sustainedWindowMinutes"`
+	OfflineAfterHours       int     `json:"offlineAfterHours"`
 }
 
 // DefaultConfigFromEnv builds initial values from startup config.
@@ -46,6 +48,28 @@ func DefaultConfigFromEnv(cpu, memoryRatio, disk, staleMult float64, cooldown ti
 		DiskFillingPercent:    85,
 		ContainerRestartCount: 3,
 	}
+}
+
+func defaultSustainedMinutes(d time.Duration) int {
+	if d <= 0 {
+		return 0
+	}
+	m := int(d / time.Minute)
+	if m <= 0 {
+		m = 5
+	}
+	return m
+}
+
+func defaultOfflineHours(d time.Duration) int {
+	if d <= 0 {
+		return 24
+	}
+	h := int(d / time.Hour)
+	if h <= 0 {
+		h = 24
+	}
+	return h
 }
 
 // ConfigStore holds runtime-updatable thresholds (hub UI).
@@ -103,6 +127,29 @@ func (s *ConfigStore) StaleAfter(collectionInterval time.Duration) time.Duration
 	return time.Duration(float64(collectionInterval) * m)
 }
 
+// SustainedWindow returns the CPU/memory sustained alert window.
+func (s *ConfigStore) SustainedWindow() time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.snap.SustainedWindowMinutes <= 0 {
+		return 0
+	}
+	return time.Duration(s.snap.SustainedWindowMinutes) * time.Minute
+}
+
+// OfflineAfter returns how long without push before an agent is marked offline.
+func (s *ConfigStore) OfflineAfter(fallback time.Duration) time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.snap.OfflineAfterHours <= 0 {
+		if fallback > 0 {
+			return fallback
+		}
+		return 24 * time.Hour
+	}
+	return time.Duration(s.snap.OfflineAfterHours) * time.Hour
+}
+
 func (s *ConfigStore) Diagnostics() DiagnosticThresholds {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -153,5 +200,11 @@ func normalize(c *ConfigSnapshot) {
 	}
 	if c.ContainerRestartCount <= 0 {
 		c.ContainerRestartCount = 3
+	}
+	if c.SustainedWindowMinutes < 0 {
+		c.SustainedWindowMinutes = 0
+	}
+	if c.OfflineAfterHours <= 0 {
+		c.OfflineAfterHours = 24
 	}
 }

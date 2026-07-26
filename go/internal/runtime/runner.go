@@ -63,6 +63,8 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 	var hubStats *hub.Stats
 	var histStore *history.Store
 	var alertCfg *alert.ConfigStore
+	var notifCfg *alert.NotificationConfigStore
+	var hubProbeStore *probe.ConfigStore
 	var alertEngine *alert.Engine
 	var silenceStore *alert.SilenceStore
 	var diagEngine *diagnostic.Engine
@@ -77,6 +79,12 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				logger.Warn("history store unavailable", "err", err)
 			} else {
 				logger.Info("history store enabled", "path", cfg.HistoryDBPath, "profile", cfg.HistoryProfile)
+				if err := histStore.RunHourlyRollup(ctx); err != nil {
+					logger.Warn("initial hourly rollup failed", "err", err)
+				}
+				if err := histStore.RunDailyRollup(ctx); err != nil {
+					logger.Warn("initial daily rollup failed", "err", err)
+				}
 				go func() {
 					rollupTicker := time.NewTicker(time.Hour)
 					retentionTicker := time.NewTicker(24 * time.Hour)
@@ -104,6 +112,8 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		}
 
 		alertCfg = alert.LoadConfigStore(cfg, histStore)
+		notifCfg = alert.LoadNotificationConfigStore(histStore)
+		hubProbeStore = probe.LoadConfigStore(histStore)
 		silenceStore = alert.LoadSilenceStore(histStore)
 		diagEngine = diagnostic.NewEngine(histStore, alertCfg)
 
@@ -112,27 +122,28 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 				logger.Warn("agent catalog load failed", "err", err)
 			} else if len(catalog) > 0 {
 				staleAfter := alertCfg.StaleAfter(cfg.MetricsCollectionPeriod)
-				offlineAfter := cfg.HubOfflineAfter
-				if offlineAfter <= 0 {
-					offlineAfter = 24 * time.Hour
-				}
+				offlineAfter := alertCfg.OfflineAfter(cfg.HubOfflineAfter)
 				registry.Hydrate(hub.SummariesFromCatalog(catalog, staleAfter, offlineAfter))
 				logger.Info("agent catalog hydrated", "count", len(catalog))
 			}
 		}
 
-		if alert.AlertsEnabled(cfg) {
-			inner := alert.ComposeNotifiers(cfg)
-			var notifier alert.Notifier = inner
+		if alert.AlertsEnabled(cfg, notifCfg) {
+			var onSent func(alert.Event)
 			if histStore != nil {
-				notifier = alert.NewPersistingNotifier(inner, func(ev alert.Event) {
+				onSent = func(ev alert.Event) {
 					_ = histStore.SaveAlertEvent(ev, "OPEN")
-				})
+				}
 			}
+			notifier := alert.BuildNotifierChain(cfg, notifCfg, onSent)
 			rules := alert.DefaultRules(alertCfg)
 			alertEngine = alert.NewEngine(rules, notifier, alertCfg, logger)
 			alertEngine.SetStats(hubStats)
 			alertEngine.SetSilences(silenceStore)
+			alertEngine.SetSustainedWindow(alertCfg.SustainedWindow())
+			if histStore != nil {
+				alertEngine.SetResolver(histStore)
+			}
 			go alertEngine.Run(ctx)
 			go alertEngine.RunStaleChecker(ctx, cfg.MetricsCollectionPeriod, cfg.MetricsCollectionPeriod, func() []alert.AgentSeen {
 				seen := registry.ListAgentSeen()
@@ -145,6 +156,8 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 			logger.Info("alert engine enabled",
 				"webhook", cfg.AlertsWebhookURL != "",
 				"slack", cfg.AlertsSlackWebhookURL != "",
+				"discord", cfg.AlertsDiscordWebhookURL != "",
+				"email", alert.BuildNotificationResponse(cfg, notifCfg).Channels["email"].Enabled,
 			)
 		}
 	}
@@ -214,8 +227,10 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		Registry:      registry,
 		Containers:    containers,
 		AlertEngine:   alertEngine,
-		AlertConfig:   alertCfg,
-		AlertSilences: silenceStore,
+		AlertConfig:        alertCfg,
+		NotificationConfig: notifCfg,
+		ProbeConfig:        hubProbeStore,
+		AlertSilences:      silenceStore,
 		DiagEngine:    diagEngine,
 		History:       histStore,
 		HubStats:      hubStats,
