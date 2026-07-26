@@ -29,9 +29,10 @@ export function AppRouter() {
             <Route path="containers" element={<ContainersPage />} />
             <Route path="container-metrics" element={<ContainerMetricsPage />} />
             <Route path="diagnostics" element={<DiagnosticsPage />} />
+            <Route path="alerts" element={<AlertsPage />} />
           </Route>
-          <Route path="/diagnostics" element={<DiagnosticsPage />} />
-          <Route path="/alerts" element={<AlertsPage />} />
+          <Route path="/diagnostics" element={<Navigate to="/hub" replace />} />
+          <Route path="/alerts" element={<Navigate to="/hub" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

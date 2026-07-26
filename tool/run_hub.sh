@@ -18,7 +18,6 @@ bash "$ROOT/tool/kill_port.sh" "$PORT"
 
 make_banner "Metrics Hub" \
   "Hub UI" "http://localhost:${PORT}/hub" \
-  "Alerts" "http://localhost:${PORT}/alerts" \
   "Ingest" "http://localhost:${PORT}/api/v1/ingest" \
   "Thresholds" "http://localhost:${PORT}/hub (settings panel)"
 

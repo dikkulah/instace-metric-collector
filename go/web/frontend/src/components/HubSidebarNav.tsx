@@ -9,12 +9,13 @@ const agentViews = [
   { segment: 'services', labelKey: 'nav.services', end: false },
   { segment: 'containers', labelKey: 'nav.containers', end: false },
   { segment: 'diagnostics', labelKey: 'nav.diagnostics', end: false },
+  { segment: 'alerts', labelKey: 'nav.alerts', end: false },
 ] as const
 
 const CHEVRON = 'w-5 shrink-0 flex items-center justify-center text-[10px] text-on-surface-variant'
 
 function linkClass(isActive: boolean, extra = ''): string {
-  return `flex-1 min-w-0 truncate py-1.5 pr-2 rounded-md text-sm ${extra} ${
+  return `block w-full truncate py-1.5 pl-1 pr-2 rounded-md text-sm ${extra} ${
     isActive
       ? 'bg-primary-container/30 text-primary font-medium'
       : 'text-on-surface-variant hover:bg-surface-high'
@@ -23,12 +24,14 @@ function linkClass(isActive: boolean, extra = ''): string {
 
 function TreeBranch({ children }: { children: ReactNode }) {
   return (
-    <div className="ml-3 border-l border-outline-variant/30 pl-3 space-y-0.5">{children}</div>
+    <div className="ml-3 border-l border-outline-variant/30 pl-3 flex flex-col gap-0.5">{children}</div>
   )
 }
 
 function TreeLeaf({ children }: { children: ReactNode }) {
-  return <div className="ml-3 border-l border-outline-variant/30 pl-3 space-y-0.5">{children}</div>
+  return (
+    <div className="ml-3 border-l border-outline-variant/30 pl-3 flex flex-col gap-0.5">{children}</div>
+  )
 }
 
 export function HubSidebarNav() {
@@ -138,34 +141,6 @@ export function HubSidebarNav() {
           </TreeBranch>
         )}
       </div>
-
-      <NavLink
-        to="/diagnostics"
-        end
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-md text-sm whitespace-nowrap ${
-            isActive
-              ? 'bg-primary-container/30 text-primary font-medium'
-              : 'text-on-surface-variant hover:bg-surface-high'
-          }`
-        }
-      >
-        {t('nav.diagnostics')}
-      </NavLink>
-
-      <NavLink
-        to="/alerts"
-        end
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-md text-sm whitespace-nowrap ${
-            isActive
-              ? 'bg-primary-container/30 text-primary font-medium'
-              : 'text-on-surface-variant hover:bg-surface-high'
-          }`
-        }
-      >
-        {t('nav.alerts')}
-      </NavLink>
     </nav>
   )
 }
