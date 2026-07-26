@@ -7,6 +7,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=make_helpers.sh
 source "$ROOT/tool/make_helpers.sh"
 
+# shellcheck source=air_path.sh
+source "$ROOT/tool/air_path.sh"
+
 HUB_PORT="${HUB_PORT:-8081}"
 AGENT_PORT="${AGENT_PORT:-8080}"
 UI_PORT="${UI_PORT:-5173}"
@@ -17,7 +20,7 @@ FRONTEND="$ROOT/go/web/frontend"
 AGENT_LOG="${TMPDIR:-/tmp}/imc-dev-agent.log"
 USE_AIR=false
 
-if command -v air >/dev/null 2>&1; then
+if air_on_path; then
   USE_AIR=true
 fi
 
@@ -47,6 +50,8 @@ if [[ "$USE_AIR" == "false" ]]; then
     make_step "Building binaries (one-time)"
     make -C "$ROOT" build
   fi
+else
+  ensure_ui_embedded "$ROOT"
 fi
 
 start_hub() {
