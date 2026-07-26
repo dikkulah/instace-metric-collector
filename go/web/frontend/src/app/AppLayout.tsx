@@ -3,6 +3,7 @@ import { AppShell } from './AppShell'
 import { useMeta } from '../api/useMeta'
 import { useMetrics } from '../api/useMetrics'
 import { EmptyState } from '../components/EmptyState'
+import { HistoryViewProvider } from '../context/HistoryViewContext'
 
 export function AppLayout() {
   const { t } = useTranslation()
@@ -26,11 +27,13 @@ export function AppLayout() {
   }
 
   return (
-    <AppShell
-      mode={meta.mode}
-      live={meta.mode === 'hub' ? true : live}
-      lastUpdate={meta.mode === 'hub' ? null : lastUpdate}
-      version={meta.version}
-    />
+    <HistoryViewProvider>
+      <AppShell
+        mode={meta.mode}
+        live={meta.mode === 'hub' ? true : live}
+        lastUpdate={meta.mode === 'hub' ? null : lastUpdate}
+        version={meta.version}
+      />
+    </HistoryViewProvider>
   )
 }
