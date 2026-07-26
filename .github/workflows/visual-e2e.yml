@@ -1,0 +1,65 @@
+name: Visual E2E
+
+on:
+  push:
+    branches: [main, master, development]
+    paths:
+      - 'go/web/frontend/**'
+      - 'go/internal/webui/**'
+      - 'go/internal/demo/**'
+      - 'go/internal/web/**'
+      - '.github/workflows/visual-e2e.yml'
+  pull_request:
+    branches: [main, master, development]
+    paths:
+      - 'go/web/frontend/**'
+      - 'go/internal/webui/**'
+      - 'go/internal/demo/**'
+      - 'go/internal/web/**'
+      - '.github/workflows/visual-e2e.yml'
+
+jobs:
+  visual-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: go/web/frontend/package-lock.json
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install frontend deps
+        working-directory: go/web/frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: go/web/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build UI and agent
+        working-directory: go
+        run: make ui-sync-dist build
+
+      - name: Run Playwright tests
+        working-directory: go/web/frontend
+        env:
+          CI: true
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            go/web/frontend/playwright-report/
+            go/web/frontend/test-results/
+          retention-days: 7

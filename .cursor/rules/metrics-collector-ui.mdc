@@ -28,4 +28,10 @@ API and SSE endpoints read from the store only. No collector or shell calls in H
 - Use `tool/check_i18n_coverage.sh` before merge when touching locale files.
 - API field names (`cpuLoad`, …) stay English — translate labels only.
 
+## Visual testing
+
+- Layout, split-view, or scroll changes: run **ui-visual-review** skill (`make ui-visual-serve`, port **18081**).
+- Container “agent dashboard” is tested via host `/container-metrics?id=…`, not container mapped port (Docker image may serve stale UI).
+- CI: `make ui-e2e` — see `docs/VISUAL_TESTING.md`.
+
 See `docs/UI_PLAN.md` for screen layout and API design.
