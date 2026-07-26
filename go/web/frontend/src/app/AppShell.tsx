@@ -1,10 +1,16 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { AppMode } from '../api/types'
 import { LiveIndicator } from '../components/LiveIndicator'
+import { LiveHistoryToggle } from '../components/LiveHistoryToggle'
 import { SearchInput } from '../components/SearchInput'
 import { HubSidebarNav } from '../components/HubSidebarNav'
 import { useState } from 'react'
+
+function isDashboardRoute(pathname: string): boolean {
+  if (pathname === '/') return true
+  return /^\/hub\/agents\/[^/]+$/.test(pathname)
+}
 
 const agentNav = [
   { to: '/', labelKey: 'nav.dashboard', end: true },
@@ -25,6 +31,8 @@ export function AppShell({
   version?: string
 }) {
   const { t, i18n } = useTranslation()
+  const location = useLocation()
+  const showHistoryToggle = isDashboardRoute(location.pathname)
   const nav = agentNav
   const [globalSearch, setGlobalSearch] = useState('')
 
@@ -87,6 +95,7 @@ export function AppShell({
             />
           </div>
           <div className="flex items-center gap-2 text-sm">
+            {showHistoryToggle && <LiveHistoryToggle />}
             <button
               type="button"
               onClick={() => switchLocale('en')}

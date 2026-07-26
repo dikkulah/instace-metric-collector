@@ -1,17 +1,24 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMetricsContext } from '../../context/MetricsContext'
+import { useHistoryView } from '../../context/HistoryViewContext'
 import { useAgentHref } from '../../hooks/useAgentBasePath'
 import { MetricCard, barFillClass } from '../../components/MetricCard'
 import { EmptyState } from '../../components/EmptyState'
 import { StatusPill } from '../../components/StatusPill'
 import { PageShell } from '../../components/layout/PageShell'
+import { DashboardHistoryView } from './DashboardHistoryView'
 import { formatBytes, formatPercent, isAgentContainer } from '../../lib/format'
 
 export function DashboardPage() {
   const { t } = useTranslation()
+  const { viewMode } = useHistoryView()
   const { snapshot } = useMetricsContext()
   const containersHref = useAgentHref('containers')
+
+  if (viewMode === 'history') {
+    return <DashboardHistoryView />
+  }
 
   if (!snapshot) {
     return <EmptyState message={t('app.waiting')} />
