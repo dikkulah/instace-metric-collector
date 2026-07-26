@@ -15,8 +15,13 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export async function apiPost<T>(path: string): Promise<T> {
-  const res = await fetch(path, { method: 'POST' })
+export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  const init: RequestInit = { method: 'POST' }
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' }
+    init.body = JSON.stringify(body)
+  }
+  const res = await fetch(path, init)
   if (!res.ok) throw new Error(`${path}: ${res.status}`)
   return res.json() as Promise<T>
 }

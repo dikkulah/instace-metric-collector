@@ -6,6 +6,7 @@ export interface HubConfig {
   version: string
   collectionIntervalMs: number
   staleAfterMs: number
+  offlineAfterMs: number
 }
 
 const defaults: HubConfig = {
@@ -13,6 +14,7 @@ const defaults: HubConfig = {
   version: '',
   collectionIntervalMs: 60000,
   staleAfterMs: 120000,
+  offlineAfterMs: 86400000,
 }
 
 export function useHubConfig() {

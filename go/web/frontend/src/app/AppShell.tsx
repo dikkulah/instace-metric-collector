@@ -7,9 +7,10 @@ import { SearchInput } from '../components/SearchInput'
 import { HubSidebarNav } from '../components/HubSidebarNav'
 import { useState } from 'react'
 
-function isDashboardRoute(pathname: string): boolean {
+function isHistoryCapableRoute(pathname: string): boolean {
   if (pathname === '/') return true
-  return /^\/hub\/agents\/[^/]+$/.test(pathname)
+  if (/^\/(processes|services|containers|container-metrics)(\/|$)/.test(pathname)) return true
+  return /^\/hub\/agents\/[^/]+(\/(processes|services|containers|container-metrics))?$/.test(pathname)
 }
 
 const agentNav = [
@@ -32,7 +33,7 @@ export function AppShell({
 }) {
   const { t, i18n } = useTranslation()
   const location = useLocation()
-  const showHistoryToggle = isDashboardRoute(location.pathname)
+  const showHistoryToggle = isHistoryCapableRoute(location.pathname)
   const nav = agentNav
   const [globalSearch, setGlobalSearch] = useState('')
 

@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useHubAgents } from '../api/useHubAgents'
+import { isAgentOffline } from '../lib/agentStatus'
 
 const agentViews = [
   { segment: '', labelKey: 'nav.dashboard', end: true },
@@ -66,6 +67,7 @@ export function HubSidebarNav() {
           sortedAgents.map((agent) => {
             const base = `/hub/agents/${encodeURIComponent(agent.agentId)}`
             const isActiveAgent = activeAgentId === agent.agentId
+            const offline = isAgentOffline(agent.status)
 
             return (
               <div key={agent.agentId}>
@@ -77,7 +79,15 @@ export function HubSidebarNav() {
                   }
                   title={agent.agentId}
                 >
-                  {agent.hostname}
+                  <span className="inline-flex items-center gap-2 min-w-0">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+                        offline ? 'bg-on-surface-variant/50' : 'bg-tertiary'
+                      }`}
+                      aria-hidden
+                    />
+                    <span className="truncate">{agent.hostname}</span>
+                  </span>
                 </NavLink>
 
                 {isActiveAgent && (

@@ -19,8 +19,9 @@ export function historyRangeBounds(range: HistoryTimeRange): { from: Date; to: D
   return { from, to }
 }
 
-export function resolutionForRange(range: HistoryTimeRange): 'raw' | 'hourly' {
-  return range === '7d' ? 'hourly' : 'raw'
+export function resolutionForRange(range: HistoryTimeRange): 'raw' | 'hourly' | 'daily' {
+  if (range === '7d') return 'hourly'
+  return 'raw'
 }
 
 function maxDiskPercent(snap: MetricsSnapshot): number {

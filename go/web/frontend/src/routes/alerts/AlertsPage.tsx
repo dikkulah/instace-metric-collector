@@ -33,7 +33,7 @@ export function AlertsPage() {
   const { t } = useTranslation()
   const { agentId } = useParams<{ agentId?: string }>()
   const agents = useHubAgents()
-  const { alerts, acknowledge, ackingId } = useAlerts(agentId)
+  const { alerts, acknowledge, ackingId, silence, silencingKey } = useAlerts(agentId)
   const agent = agentId ? agents.find((a) => a.agentId === agentId) : undefined
   const showAgentColumn = !agentId
 
@@ -71,14 +71,34 @@ export function AlertsPage() {
                   <td className="p-3 text-on-surface-variant">{a.firedAt}</td>
                   <td className="p-3">
                     {a.status === 'OPEN' ? (
-                      <button
-                        type="button"
-                        onClick={() => void acknowledge(a.id)}
-                        disabled={ackingId === a.id}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary-container/30 text-primary hover:bg-primary-container/50 disabled:opacity-50"
-                      >
-                        {ackingId === a.id ? t('alerts.acking') : t('alerts.ack')}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void acknowledge(a.id)}
+                          disabled={ackingId === a.id}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary-container/30 text-primary hover:bg-primary-container/50 disabled:opacity-50"
+                        >
+                          {ackingId === a.id ? t('alerts.acking') : t('alerts.ack')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void silence(a, 60)}
+                          disabled={silencingKey === `${a.agentId}|${a.ruleId}`}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium border border-outline-variant hover:bg-surface-container disabled:opacity-50"
+                        >
+                          {silencingKey === `${a.agentId}|${a.ruleId}`
+                            ? t('alerts.silencing')
+                            : `${t('alerts.silence')} (${t('alerts.silence1h')})`}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void silence(a, 24 * 60)}
+                          disabled={silencingKey === `${a.agentId}|${a.ruleId}`}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium border border-outline-variant hover:bg-surface-container disabled:opacity-50"
+                        >
+                          {t('alerts.silence24h')}
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-on-surface-variant text-xs">—</span>
                     )}
