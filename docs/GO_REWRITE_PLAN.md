@@ -136,7 +136,30 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 | History API: `GET /api/v1/agents/{id}/history?resolution=` | [x] |
 | (G7b) Normalized `process_samples` / `service_samples` / `container_samples` | [ ] |
 
-**Exit:** Ingest → tam JSON persist; `full` profile ile drill-down; prod `minimal` yalnızca retention kısar.
+**Exit:** Ingest → tam JSON persist; `full` profile ile drill-down; prod `minimal` yalnızca retention kısar. **P10 Historic UI** tamamlandı (Live \| History toggle, zaman aralığı, CPU/RAM/disk grafikleri).
+
+---
+
+## Phase P10 — Historic UI ✅
+
+| Task | Done |
+|------|------|
+| Header Live \| History toggle | [x] |
+| Zaman aralığı (1h / 6h / 24h / 7d) | [x] |
+| Agent ring buffer + hub `resolution=raw\|hourly` | [x] |
+| Dashboard + hub agent drill-down | [x] |
+
+---
+
+## Phase P11 — Alert platform (kısmi)
+
+| Task | Done |
+|------|------|
+| Alert store + `GET /api/v1/alerts` | [x] |
+| `POST /api/v1/alerts/{id}/ack` | [x] |
+| AlertsPage + hub agent ACK UI | [x] |
+| Silence / Slack / Discord / email | [ ] |
+| Sustained rules (`avg > x for 5m`) | [ ] |
 
 **Detay:** [`HISTORY_ALERTS_DIAGNOSTICS_PLAN.md`](HISTORY_ALERTS_DIAGNOSTICS_PLAN.md)
 
@@ -151,18 +174,21 @@ Go hub (G5) sonrası; Phase 10 ile hizalı. **İlke:** ingest tam `MetricsPayloa
 | Docker containers | ✓ | G3 |
 | Dashboard + i18n | ✓ | G4 (React SPA F0–F7) |
 | Hub + push + alerts | ✓ | G5 (done) |
-| Historic store (full payload) | — | G7 (Tier0 done) |
+| Historic store (full payload) | — | G7 (Tier0 + rollup) |
+| Historic UI (Live \| History) | — | P10 ✅ |
+| Alert ACK + history UI | — | P11 (partial ✅) |
 | Actuator/health | ✓ | G6 (`/health` or `/live`) |
 | `make ci-fast` equivalent | ✓ | `make go-ci` |
 
 ---
 
-## Deferred from Java backlog (re-prioritize after G5)
+## Deferred from Java backlog (re-prioritize after G7)
 
-- Phase 10 historic UI + Java hub persist (opsiyonel) — **asıl store Go G7**
-- Phase 11 alert platform
+- ~~Phase 10 historic UI~~ — **done (P10)**
+- Phase 11 alert platform — ACK done; silence + Slack/Discord/email (ADR-011) sırada
 - Phase 8 multi-tenant
 - Phase 9 Windows MSI / systemd installers (easier in Go)
+- Outpost rename (repo/module/binary) — planlı, bkz. [`COMPETITIVE_PLAN.md`](COMPETITIVE_PLAN.md)
 
 ---
 
