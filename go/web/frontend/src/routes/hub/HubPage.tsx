@@ -5,6 +5,7 @@ import { useHubAgents } from '../../api/useHubAgents'
 import { HubAlertSettings } from './HubAlertSettings'
 import { HubNotificationSettings } from '../../components/HubNotificationSettings'
 import { HubOpsPanel } from '../../components/HubOpsPanel'
+import { HubProbeSettings } from '../../components/HubProbeSettings'
 import { PillTabs } from '../../components/PillTabs'
 import { SearchInput } from '../../components/SearchInput'
 import { StatusPill } from '../../components/StatusPill'
@@ -58,6 +59,7 @@ export function HubPage() {
       </div>
       <HubAlertSettings />
       <HubNotificationSettings />
+      <HubProbeSettings />
       <HubOpsPanel />
       <PillTabs
         tabs={[

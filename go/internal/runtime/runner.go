@@ -64,6 +64,7 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 	var histStore *history.Store
 	var alertCfg *alert.ConfigStore
 	var notifCfg *alert.NotificationConfigStore
+	var hubProbeStore *probe.ConfigStore
 	var alertEngine *alert.Engine
 	var silenceStore *alert.SilenceStore
 	var diagEngine *diagnostic.Engine
@@ -106,6 +107,7 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 
 		alertCfg = alert.LoadConfigStore(cfg, histStore)
 		notifCfg = alert.LoadNotificationConfigStore(histStore)
+		hubProbeStore = probe.LoadConfigStore(histStore)
 		silenceStore = alert.LoadSilenceStore(histStore)
 		diagEngine = diagnostic.NewEngine(histStore, alertCfg)
 
@@ -221,6 +223,7 @@ func Run(ctx context.Context, mode appmode.Mode, cfg config.Config) error {
 		AlertEngine:   alertEngine,
 		AlertConfig:        alertCfg,
 		NotificationConfig: notifCfg,
+		ProbeConfig:        hubProbeStore,
 		AlertSilences:      silenceStore,
 		DiagEngine:    diagEngine,
 		History:       histStore,

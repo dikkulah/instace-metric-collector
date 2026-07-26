@@ -146,3 +146,36 @@ func TestResolveOpenAlerts(t *testing.T) {
 		t.Fatalf("expected no open alerts, got %+v", open)
 	}
 }
+
+func TestGetInsight(t *testing.T) {
+	dir := t.TempDir()
+	store, err := Open(filepath.Join(dir, "insight.db"), "full", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	ins := Insight{
+		ID:         "agent-1|DISK_FILLING|/",
+		AgentID:    "agent-1",
+		Type:       "DISK_FILLING",
+		Severity:   "critical",
+		DetectedAt: time.Now().UTC().Format(time.RFC3339Nano),
+		SummaryKey: "diagnostics.diskFilling",
+		Details:    map[string]any{"mount": "/"},
+	}
+	if err := store.SaveInsight(ins); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.GetInsight("agent-1", ins.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Type != "DISK_FILLING" {
+		t.Fatalf("got = %+v", got)
+	}
+	_, err = store.GetInsight("agent-1", "missing")
+	if err != ErrInsightNotFound {
+		t.Fatalf("err = %v", err)
+	}
+}

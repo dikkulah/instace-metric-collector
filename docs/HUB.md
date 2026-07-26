@@ -109,6 +109,8 @@ Ingest auth: `Authorization: Bearer <token>` or `X-Ingest-Token` header when `ME
 | GET | `/api/v1/hub/config` | Hub UI settings (`staleAfterMs`, `offlineAfterMs`, `history` metadata) |
 | GET | `/api/v1/hub/notification-config` | Notification channels status + SMTP (non-secret) |
 | PUT | `/api/v1/hub/notification-config` | Update hub SMTP settings (when not env-locked) |
+| GET | `/api/v1/hub/probe-config` | Connectivity probe targets (env or hub reference) |
+| PUT | `/api/v1/hub/probe-config` | Update hub probe list (when env not set) |
 | DELETE | `/api/v1/alerts/silences?agentId=&ruleId=` | Revoke an active silence |
 | PUT | `/api/v1/hub/alert-config` | Update thresholds (persisted when history enabled) |
 
@@ -148,6 +150,7 @@ Persistent agent catalog (`hub_agents`) keeps known agents visible after hub res
 | GET | `/api/v1/alerts` | Alert event history (`?status=OPEN|ACK|RESOLVED`) |
 | POST | `/api/v1/alerts/{id}/resolve` | Manually resolve an OPEN or ACK alert |
 | GET | `/api/v1/agents/{id}/diagnostics` | Diagnostic insights |
+| GET | `/api/v1/agents/{id}/diagnostics/{insightId}` | Single insight detail |
 
 ## Connectivity probes (Phase 13)
 

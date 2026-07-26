@@ -396,6 +396,30 @@ func (s *Store) ListInsights(agentID string, limit int) ([]Insight, error) {
 	return out, nil
 }
 
+var ErrInsightNotFound = errors.New("insight not found")
+
+// GetInsight returns a diagnostic insight by stable id for an agent.
+func (s *Store) GetInsight(agentID, insightID string) (Insight, error) {
+	if s == nil {
+		return Insight{}, ErrInsightNotFound
+	}
+	var ins Insight
+	var details string
+	err := s.db.QueryRow(`
+		SELECT id, agent_id, type, severity, detected_at, summary_key, details_json
+		FROM diagnostic_insights WHERE agent_id = ? AND id = ?`, agentID, insightID).Scan(
+		&ins.ID, &ins.AgentID, &ins.Type, &ins.Severity, &ins.DetectedAt, &ins.SummaryKey, &details,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Insight{}, ErrInsightNotFound
+	}
+	if err != nil {
+		return Insight{}, err
+	}
+	_ = json.Unmarshal([]byte(details), &ins.Details)
+	return ins, nil
+}
+
 // RunRetention rolls up completed hours then deletes expired raw samples.
 func (s *Store) RunRetention(ctx context.Context) error {
 	if s == nil || s.retentionDays <= 0 {

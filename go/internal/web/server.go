@@ -20,6 +20,7 @@ import (
 	"github.com/dikkulah/instance-metric-collector/go/internal/history"
 	"github.com/dikkulah/instance-metric-collector/go/internal/hub"
 	"github.com/dikkulah/instance-metric-collector/go/internal/payload"
+	"github.com/dikkulah/instance-metric-collector/go/internal/probe"
 	"github.com/dikkulah/instance-metric-collector/go/internal/store"
 	"github.com/dikkulah/instance-metric-collector/go/internal/webui"
 )
@@ -36,6 +37,7 @@ type Deps struct {
 	AlertEngine   *alert.Engine
 	AlertConfig        *alert.ConfigStore
 	NotificationConfig *alert.NotificationConfigStore
+	ProbeConfig        *probe.ConfigStore
 	AlertSilences      *alert.SilenceStore
 	DiagEngine    *diagnostic.Engine
 	History      *history.Store
@@ -77,6 +79,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/hub/config", s.handleHubConfig)
 	mux.HandleFunc("/api/v1/hub/alert-config", s.handleHubAlertConfig)
 	mux.HandleFunc("/api/v1/hub/notification-config", s.handleHubNotificationConfig)
+	mux.HandleFunc("/api/v1/hub/probe-config", s.handleHubProbeConfig)
 	mux.HandleFunc("/api/v1/hub/stats", s.handleHubStats)
 	mux.HandleFunc("/api/v1/alerts", s.handleAlertRoutes)
 	mux.HandleFunc("/api/v1/alerts/", s.handleAlertRoutes)
@@ -360,16 +363,33 @@ func (s *Server) handleAgentRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, s.deps.Registry.History(agentID, limit))
 	case "diagnostics":
-		if s.deps.History == nil {
-			writeJSON(w, []history.Insight{})
+		if len(parts) < 3 {
+			if s.deps.History == nil {
+				writeJSON(w, []history.Insight{})
+				return
+			}
+			insights, err := s.deps.History.ListInsights(agentID, queryInt(r, "limit", 50))
+			if err != nil {
+				http.Error(w, "diagnostics error", http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, insights)
 			return
 		}
-		insights, err := s.deps.History.ListInsights(agentID, queryInt(r, "limit", 50))
+		if s.deps.History == nil {
+			http.Error(w, "history unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		ins, err := s.deps.History.GetInsight(agentID, parts[2])
+		if errors.Is(err, history.ErrInsightNotFound) {
+			http.Error(w, "insight not found", http.StatusNotFound)
+			return
+		}
 		if err != nil {
 			http.Error(w, "diagnostics error", http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, insights)
+		writeJSON(w, ins)
 	default:
 		http.NotFound(w, r)
 	}
