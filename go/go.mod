@@ -4,8 +4,9 @@ go 1.25.0
 
 require (
 	github.com/moby/moby/api v1.55.0
-	github.com/moby/moby/client v0.5.0
+	github.com/moby/moby/client v0.5.1
 	github.com/shirou/gopsutil/v4 v4.26.6
+	modernc.org/sqlite v1.54.0
 )
 
 require (
@@ -42,5 +43,4 @@ require (
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.54.0 // indirect
 )
